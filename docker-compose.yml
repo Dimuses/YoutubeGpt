@@ -1,0 +1,37 @@
+version: '3.2'
+services:
+  app:
+    working_dir: /var/www
+    build:
+      context: .
+      dockerfile: ./docker/app/Dockerfile
+      args:
+        XDEBUG_VERSION: $XDEBUG_VERSION
+        PHP_VERSION: $PHP_VERSION
+    volumes:
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+      - ./:/app:delegated
+      - ./app:/var/www
+      - ./docker/app/logs:/var/log/apache2
+      - ./docker/app/sites-enabled:/etc/apache2/sites-enabled
+    ports:
+      - '80:80'
+    environment:
+      DB_HOST: $DB_HOST
+      DB_NAME: $DB_NAME
+      DB_USER: $DB_USER
+      DB_PASSWORD: $DB_PASSWORD
+
+  db:
+    hostname: db
+    image: mysql:8
+    platform: linux/x86_64
+    environment:
+      MYSQL_ROOT_PASSWORD: $DB_PASSWORD
+      MYSQL_DATABASE: $DB_NAME
+
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/db/storage/mysql:/var/lib/mysql
+      - ./docker/db/logs:/var/log/mysql
