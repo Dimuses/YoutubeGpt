@@ -5,6 +5,8 @@ namespace frontend\component;
 use common\models\Auth;
 use common\models\User;
 use Exception;
+use Google_Client;
+use Google_Service_YouTube;
 use Yii;
 use yii\authclient\ClientInterface;
 use yii\helpers\ArrayHelper;
@@ -14,6 +16,7 @@ use yii\helpers\ArrayHelper;
  */
 class AuthHandler
 {
+    const CREDENTIAL_PATH = '@common/files/yt-oauth2.json';
     /**
      * @var ClientInterface
      */
@@ -24,8 +27,30 @@ class AuthHandler
         $this->client = $client;
     }
 
+
+    private function getClient()
+    {
+        $client = new Google_Client();
+        $client->setAccessType('offline');
+        $accessToken = $this->client->getAccessToken()->token;
+        if ($accessToken){
+            $client->setAccessToken($accessToken);
+            file_put_contents(Yii::getAlias(self::CREDENTIAL_PATH), $client->getAccessToken());
+            // Refresh the token if it's expired.
+            if ($client->isAccessTokenExpired()) {
+                $client->refreshToken($client->getRefreshToken());
+                file_put_contents(Yii::getAlias(self::CREDENTIAL_PATH), $client->getAccessToken());
+            }
+            return $client;
+        }
+    }
+
+
     public function handle()
     {
+        $youtubeClient = $this->getClient();
+
+
         $attributes = $this->client->getUserAttributes();
         $email = ArrayHelper::getValue($attributes, 'email');
         $id = ArrayHelper::getValue($attributes, 'id');
