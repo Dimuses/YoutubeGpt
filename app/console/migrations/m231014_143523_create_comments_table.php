@@ -16,10 +16,13 @@ class m231014_143523_create_comments_table extends Migration
     {
         $this->createTable(Tables::COMMENTS, [
             'id' => $this->primaryKey(),
-            'video_id' => $this->integer()->notNull(),
+            'video_id' => $this->string(32)->notNull(),
             'text' => $this->text()->notNull(),
-            'replied' => $this->boolean()->defaultValue(false),
-            'conversation' => $this->boolean()->defaultValue(false),
+            'replied' => $this->tinyInteger(1)->defaultValue(0),
+            'conversation' => $this->tinyInteger(1)->defaultValue(0),
+            'avatar' => $this->string(128),
+            'author' => $this->string(255),
+            'comment_date' => $this->dateTime(),
             'created_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP'),
             'updated_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
         ]);

@@ -12,15 +12,17 @@
         "irc": "ircs://irc.libera.chat:6697/yii",
         "source": "https://github.com/yiisoft/yii2"
     },
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "require": {
         "google/apiclient": "^2.15",
-        "php": ">=7.4.0",
+        "php": ">=8.0",
         "yiisoft/yii2": "~2.0.45",
         "yiisoft/yii2-bootstrap5": "~2.0.2",
         "yiisoft/yii2-symfonymailer": "~2.0.3",
         "yiisoft/yii2-authclient": "^2.2",
-        "ext-fileinfo": "*"
+        "ext-fileinfo": "*",
+        "dimuses/youtubegpt-chatgpt-providers": "dev-master",
+        "yiisoft/yii2-queue": "3.0.x-dev"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",
@@ -52,6 +54,14 @@
         }
     },
     "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/BoBRoID/youtubegpt-service-providers"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Dimuses/youtubegpt-chatgpt-providers"
+        },
         {
             "type": "composer",
             "url": "https://asset-packagist.org"

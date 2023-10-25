@@ -4,10 +4,12 @@ namespace frontend\controllers;
 
 use common\components\YoutubeClient;
 use common\models\Comments;
+use common\models\repositories\AssistantRepository;
 use common\models\search\VideoSearch;
 use common\models\Video;
 use frontend\models\forms\FindReplaceForm;
 use Yii;
+use yii\data\Pagination;
 use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -17,8 +19,6 @@ use yii\web\NotFoundHttpException;
  */
 class VideoController extends Controller
 {
-    private YoutubeClient $youtubeService;
-
     /**
      * @inheritDoc
      */
@@ -37,15 +37,19 @@ class VideoController extends Controller
         );
     }
 
-    public function __construct($id, $module, YoutubeClient $youtubeClient, $config = [])
+    public function __construct(
+        $id,
+        $module,
+        private YoutubeClient $youtubeService,
+        private AssistantRepository $assistantRepository,
+        $config = [])
     {
-        $this->youtubeService = $youtubeClient;
         parent::__construct($id, $module, $config);
     }
 
     public function actionCreateAll()
     {
-        $channelId = 'UCEGoDTvbSHPrt3jvrl-9DQg';
+        $channelId = $this->youtubeService->getChannelId();
         $videos = $this->youtubeService->videoListByChannel('snippet', ['channelId' => $channelId, 'maxResults' => 50]);
 
         foreach ($videos as $videoData) {
@@ -70,8 +74,11 @@ class VideoController extends Controller
                 file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoData['thumbnailUrl']));
                 $video->image = $fullFileName;
             }
+
+            $videoLanguage = $videoData['defaultLanguage'] ?? null;
             $video->description = $videoData['description'];
             $video->localizations = $videoData['localizations'];
+            $video->default_language = $videoLanguage;
             if ($video->save()) {
                 Yii::info("Видео {$video->title} сохранено в базу данных", 'app');
             } else {
@@ -79,8 +86,8 @@ class VideoController extends Controller
             }
         }
         return $this->redirect(['index']);
-
     }
+
 
     /**
      * Lists all Video models.
@@ -107,9 +114,22 @@ class VideoController extends Controller
     public function actionView($id)
     {
         $video = $this->findModel($id);
+
+        $query = Comments::find()->where(['video_id' => $video->video_id]);
+
+        $count = $query->count();
+        $pagination = new Pagination(['totalCount' => $count, 'defaultPageSize' => 10]);
+
+        $comments = $query->offset($pagination->offset)
+            ->limit($pagination->limit)
+            ->all();
+
+
         return $this->render('view', [
             'model' => $video,
-            'comments' => Comments::findAll(['video_id' => $video->video_id])
+            'comments' => $comments,
+            'pagination' => $pagination,
+            'assistants' => $this->assistantRepository->getAll()
         ]);
     }
 
@@ -122,28 +142,27 @@ class VideoController extends Controller
         if ($searchModel->load(Yii::$app->request->post()) && $searchModel->validate()) {
             $action = Yii::$app->request->post('action');
 
-            // Ищем видео, где текст встречается в поле localizations
-            $videos = Video::find()->where(['like', 'JSON_EXTRACT(localizations, "$.*.description")', $searchModel->searchText])->all();
+            $videosFromLocalizations = Video::find()->where(['like', 'JSON_EXTRACT(localizations, "$.*.description")', $searchModel->searchText])->all();
 
             if ($action == 'find') {
-                foreach ($videos as $video) {
+                foreach ($videosFromLocalizations as $video) {
                     $foundVideos[] = [
                         'title' => $video->title,
                         'thumbnail' => $video->image,
                     ];
                 }
-            } elseif ($action == 'replace' && !empty($videos)) {
-                foreach ($videos as $video) {
+            } elseif ($action == 'replace' && !empty($videosFromLocalizations)) {
+                foreach ($videosFromLocalizations as $video) {
                     $localizations = $video->localizations;
                     foreach ($localizations as $lang => $data) {
                         $localizations[$lang]['description'] = str_replace($searchModel->searchText, $searchModel->replaceText, $data['description']);
                     }
                     $video->localizations = $localizations;
-                    $video->save();
-
-                    // Обратите внимание: при обновлении описания на YouTube, мы можем обновить только основное описание, а не локализованные версии
-                    // Это может потребовать дополнительной логики или изменений в методе updateVideoDescription
-                    $this->youtubeService->updateVideoDescription($video->video_id, $localizations['en']['description'] ?? reset($localizations)['description']);
+                    if($this->youtubeService->updateVideoLocalizations($video->video_id, $localizations, $video->default_language))
+                    {
+                        //TODO Надобы сделать автоподтверждение по апи
+                        $video->save();
+                    }
                 }
             }
         }

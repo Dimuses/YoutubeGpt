@@ -1,26 +1,49 @@
 version: '3.2'
 services:
-  app:
-    working_dir: /var/www
+  frontend:
     build:
-      context: .
-      dockerfile: ./docker/app/Dockerfile
+      dockerfile: ./docker/frontend/Dockerfile
       args:
-        XDEBUG_VERSION: $XDEBUG_VERSION
         PHP_VERSION: $PHP_VERSION
-    volumes:
-      - ~/.composer-docker/cache:/root/.composer/cache:delegated
-      - ./:/app:delegated
-      - ./app:/var/www
-      - ./docker/app/logs:/var/log/apache2
-      - ./docker/app/sites-enabled:/etc/apache2/sites-enabled
+    env_file:
+      - ./.env
     ports:
-      - '80:80'
+      - "80:80"
     environment:
-      DB_HOST: $DB_HOST
-      DB_NAME: $DB_NAME
-      DB_USER: $DB_USER
-      DB_PASSWORD: $DB_PASSWORD
+      PHP_ENABLE_XDEBUG: $PHP_ENABLE_XDEBUG
+    volumes:
+      # Re-use local composer cache via host-volume
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+      - ./docker/frontend/sites-enabled:/etc/apache2/sites-enabled:delegated
+#      - ./docker/frontend/certs:/etc/ssl/certs
+      # Mount source-code for development
+      - ./app:/app
+  backend:
+    build:
+      dockerfile: ./docker/backend/Dockerfile
+      args:
+        PHP_VERSION: $PHP_VERSION
+    env_file:
+      - ./.env
+    ports:
+      - "8080:80"
+
+    volumes:
+      # Re-use local composer cache via host-volume
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+      - ./docker/backend/sites-enabled:/etc/apache2/sites-enabled:delegated
+      # Mount source-code for development
+      - ./app:/app
+
+  ngrok:
+    image: wernight/ngrok
+    tty: true
+    environment:
+      NGROK_AUTH: $NGROK_AUTH_TOKEN
+      NGROK_LOOK_DOMAIN: frontend
+      NGROK_HOSTNAME: $NGROK_HOSTNAME
+    ports:
+      - "4040:4040"
 
   db:
     hostname: db
@@ -35,3 +58,14 @@ services:
     volumes:
       - ./docker/db/storage/mysql:/var/lib/mysql
       - ./docker/db/logs:/var/log/mysql
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"

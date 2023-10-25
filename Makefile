@@ -1,6 +1,6 @@
 .PHONY: build up start stop exec clean
 
-I = app
+I = backend
 CONTAINER_NAME = my-docker-container
 COMPOSE_FILE = docker-compose.yml
 DOCKER_EXEC = docker-compose exec $(I)
@@ -51,8 +51,17 @@ on-debug:
 migrate:
 	 $(DOCKER_EXEC) php yii migrate/up --interactive
 
-сomposer-install:
+mc:
+	 $(DOCKER_EXEC) php yii migrate/create $(name)
+md:
+	 $(DOCKER_EXEC) php yii migrate/down
+ci:
 	 $(DOCKER_EXEC) composer install
+
+cd:
+	 $(DOCKER_EXEC) composer remove $(d)
+cr:
+	$(DOCKER_EXEC) composer require $(r)
 
 commit:
 	cd crm/base/crm/common/modules/key${m} \
@@ -73,3 +82,6 @@ commit-t:
 	&& git push --set-upstream origin task-$(t) \
 	&& git checkout dev \
     && git branch -d task-$(t)
+
+chmod-migrations:
+	sudo chmod 0777 app/console/migrations/*

@@ -5,6 +5,9 @@ namespace common\components;
 use Google\Exception;
 use Google_Client;
 use Google_Service_YouTube;
+use Google_Service_YouTube_Video;
+use Google_Service_YouTube_VideoLocalization;
+use GuzzleHttp\Client;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\base\InvalidRouteException;
@@ -35,7 +38,7 @@ class YoutubeClient
         $client = new Google_Client();
         $client->setAuthConfig(Yii::getAlias('@common/files/client_secret.json'));
         $client->setRedirectUri('https://enhanced-rightly-lemur.ngrok-free.app' . Yii::$app->urlManager->createUrl(['youtube/callback']));
-        $client->addScope([Google_Service_YouTube::YOUTUBE_FORCE_SSL, Google_Service_YouTube::YOUTUBE_READONLY]);
+        $client->addScope(Google_Service_YouTube::YOUTUBE_FORCE_SSL);
         $client->setAccessType('offline');
         $client->setPrompt('consent');
 
@@ -70,29 +73,38 @@ class YoutubeClient
         $service = $this->getYoutubeService();
         $videos = [];
 
-        $params = [
-            'channelId' => ArrayHelper::getValue($params, 'channelId'),
-            'type' => 'video',
+        $searchParams = [
+            'channelId'  => ArrayHelper::getValue($params, 'channelId'),
+            'type'       => 'video',
             'maxResults' => ArrayHelper::getValue($params, 'maxResults'),
-            'order' => 'date'
+            'order'      => 'date'
         ];
 
-        $searchResponse = $service->search->listSearch($snippet, $params);
+        $searchResponse = $service->search->listSearch($snippet, $searchParams);
 
         foreach ($searchResponse['items'] as $item) {
             $videoId = $item['id']['videoId'];
-            $title = $item['snippet']['title'];
-            $thumbnailUrl = $item['snippet']['thumbnails']['default']['url'];
-            $fullDescription = $item['snippet']['description'];
+
+            $videoResponse = $service->videos->listVideos('snippet', ['id' => $videoId]);
+            if (empty($videoResponse->items)) {
+                continue;
+            }
+            $videoDetail = $videoResponse->items[0];
+
+            $title = $videoDetail['snippet']['title'];
+            $thumbnailUrl = $videoDetail['snippet']['thumbnails']['default']['url'];
+            $fullDescription = $videoDetail['snippet']['description'];
+            $defaultLanguage = $videoDetail['snippet']['defaultLanguage'] ?? $videoDetail['snippet']['defaultAudioLanguage'];
 
             $localizations = $this->getVideoLocalizations($videoId);
 
             $videos[] = [
-                'videoId' => $videoId,
-                'title' => $title,
-                'thumbnailUrl' => $thumbnailUrl,
-                'description' => $fullDescription,
-                'localizations' => $localizations
+                'videoId'         => $videoId,
+                'title'           => $title,
+                'thumbnailUrl'    => $thumbnailUrl,
+                'description'     => $fullDescription,
+                'defaultLanguage' => $defaultLanguage,
+                'localizations'   => $localizations
             ];
         }
 
@@ -104,7 +116,7 @@ class YoutubeClient
         $service = $this->getYoutubeService();
         $localizations = [];
 
-        if (!$videoId){
+        if (!$videoId) {
             return [];
         }
 
@@ -114,7 +126,7 @@ class YoutubeClient
         if (isset($video['localizations'])) {
             foreach ($video['localizations'] as $language => $data) {
                 $localizations[$language] = [
-                    'title' => $data['title'],
+                    'title'       => $data['title'],
                     'description' => $data['description'],
                 ];
             }
@@ -124,26 +136,27 @@ class YoutubeClient
     }
 
 
-    public function updateVideoDescription($videoId, $localizations)
+    public function updateVideoLocalizations($videoId, $localizations, $defaultLanguage = null)
     {
         $service = $this->getYoutubeService();
-
-        // Получаем текущий ресурс видео
         $video = $service->videos->listVideos('snippet,localizations', ['id' => $videoId]);
         if (empty($video->items)) {
             throw new \Exception("Video not found.");
         }
-        // Если у видео уже есть локализации, объединяем их с предоставленными, иначе просто устанавливаем предоставленные
-        if (isset($video->items[0]->localizations)) {
-            $video->items[0]->localizations = array_merge($video->items[0]->localizations, $localizations);
-        } else {
-            $video->items[0]->localizations = $localizations;
+        $currentVideo = $video->items[0];
+        $newLocalizations = [];
+        foreach ($localizations as $lang => $data) {
+            $newLocalizations[$lang] = new Google_Service_YouTube_VideoLocalization($data);
         }
 
-        // Обновляем ресурс видео
-        $service->videos->update('snippet,localizations', $video->items[0]);
-    }
+        if ($defaultLanguage && isset($localizations[$defaultLanguage])) {
+            $currentVideo->getSnippet()->setDescription($localizations[$defaultLanguage]['description']);
+        }
+        $currentVideo->setLocalizations($newLocalizations);
 
+
+        return $service->videos->update('snippet,localizations', $currentVideo);
+    }
 
 
     public function commentsListFromVideo($videoId)
@@ -157,7 +170,7 @@ class YoutubeClient
         }
 
         $params = [
-            'videoId' => $videoId,
+            'videoId'    => $videoId,
             'maxResults' => 100,
             'textFormat' => 'plainText',
         ];
@@ -182,10 +195,11 @@ class YoutubeClient
 
             if (!$hasReplyFromAuthor) {
                 $comments[] = [
-                    'text' => $snippet['textDisplay'],
-                    'author' => $snippet['authorDisplayName'],
-                    'avatar' => $snippet['authorProfileImageUrl'],
-                    'date' => $snippet['publishedAt']
+                    'text'       => $snippet['textDisplay'],
+                    'author'     => $snippet['authorDisplayName'],
+                    'avatar'     => $snippet['authorProfileImageUrl'],
+                    'date'       => $snippet['publishedAt'],
+                    'comment_id' => $comment['snippet']['topLevelComment']['id']
                 ];
             }
         }
@@ -276,4 +290,5 @@ class YoutubeClient
 
         return null;
     }
+
 }

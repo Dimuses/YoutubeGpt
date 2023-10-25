@@ -19,6 +19,7 @@ use Yii;
  * @property string|null $author
  *
  * @property Video $video
+ * @property mixed|null $comment_id
  */
 class Comments extends \yii\db\ActiveRecord
 {
@@ -39,7 +40,7 @@ class Comments extends \yii\db\ActiveRecord
             [['video_id', 'text'], 'required'],
             [['replied', 'conversation'], 'integer'],
             [['text'], 'string'],
-            [['created_at', 'updated_at', 'comment_date'], 'safe'],
+            [['created_at', 'updated_at', 'comment_date', 'comment_id'], 'safe'],
             [['avatar'], 'string', 'max' => 128],
             [['video_id'], 'exist', 'skipOnError' => true, 'targetClass' => Video::class, 'targetAttribute' => ['video_id' => 'video_id']],
         ];

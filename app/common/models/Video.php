@@ -18,6 +18,8 @@ use Yii;
  *
  * @property Channel $channel
  * @property Comment[] $comments
+ * @property mixed|null $localizations
+ * @property mixed|null $default_language
  */
 class Video extends \yii\db\ActiveRecord
 {
