@@ -115,7 +115,15 @@ class VideoController extends Controller
     {
         $video = $this->findModel($id);
 
-        $query = Comments::find()->where(['video_id' => $video->video_id]);
+        $query = Comments::find()
+            ->with('replies')
+            ->where(['video_id' => $video->video_id, 'parent_id' => null,]);
+
+        if ($this->request->isGet && $filter = $this->request->get('filter')) {
+            if ($filter == 'without-my-replies'){
+                $query->andWhere(['replied' => false]);
+            }
+        }
 
         $count = $query->count();
         $pagination = new Pagination(['totalCount' => $count, 'defaultPageSize' => 10]);

@@ -158,51 +158,70 @@ class YoutubeClient
         return $service->videos->update('snippet,localizations', $currentVideo);
     }
 
-
+    /**
+     * @return object[] {
+     *     @var string $text
+     *     @var string $author
+     *     @var string $avatar
+     *     @var string $date
+     *     @var string $comment_id
+     *     @var bool $hasReplyFromAuthor
+     * }
+     */
     public function commentsListFromVideo($videoId)
     {
         $service = $this->getYoutubeService();
         $comments = [];
+        $pageToken = null;
 
         $channelId = $this->getChannelId();
         if (!$channelId) {
             throw new \Exception("Unable to fetch channel ID.");
         }
 
-        $params = [
-            'videoId'    => $videoId,
-            'maxResults' => 100,
-            'textFormat' => 'plainText',
-        ];
+        do {
+            $params = [
+                'videoId'    => $videoId,
+                'pageToken'  => $pageToken,
+                'textFormat' => 'plainText',
+            ];
+            $response = $service->commentThreads->listCommentThreads('snippet,replies', $params);
+            foreach ($response['items'] as $comment) {
+                $snippet = $comment['snippet']['topLevelComment']['snippet'];
 
-        $commentsList = $service->commentThreads->listCommentThreads('snippet,replies', $params);
+                $hasReplyFromAuthor = false;
+                $replies = [];
 
-        foreach ($commentsList['items'] as $comment) {
-            $snippet = $comment['snippet']['topLevelComment']['snippet'];
-
-            $hasReplyFromAuthor = false;
-
-            if (isset($comment['snippet']['totalReplyCount']) && $comment['snippet']['totalReplyCount'] > 0) {
-                if (isset($comment['replies'])) {
-                    foreach ($comment['replies']['comments'] as $reply) {
-                        if ($reply['snippet']['authorChannelId']['value'] === $channelId) {
-                            $hasReplyFromAuthor = true;
-                            break;
+                if (isset($comment['snippet']['totalReplyCount']) && $comment['snippet']['totalReplyCount'] > 0) {
+                    if (isset($comment['replies'])) {
+                        foreach ($comment['replies']['comments'] as $reply) {
+                            if ($reply['snippet']['authorChannelId']['value'] === $channelId) {
+                                $hasReplyFromAuthor = true;
+                            }
+                            $replies[] = (object)[
+                                'text'     => $reply['snippet']['textDisplay'],
+                                'author'   => $reply['snippet']['authorDisplayName'],
+                                'avatar'   => $reply['snippet']['authorProfileImageUrl'],
+                                'date'     => $reply['snippet']['publishedAt'],
+                                'reply_id' => $reply['id']
+                            ];
                         }
                     }
                 }
-            }
 
-            if (!$hasReplyFromAuthor) {
-                $comments[] = [
-                    'text'       => $snippet['textDisplay'],
-                    'author'     => $snippet['authorDisplayName'],
-                    'avatar'     => $snippet['authorProfileImageUrl'],
-                    'date'       => $snippet['publishedAt'],
-                    'comment_id' => $comment['snippet']['topLevelComment']['id']
+                $comments[] = (object)[
+                    'text'               => $snippet['textDisplay'],
+                    'author'             => $snippet['authorDisplayName'],
+                    'avatar'             => $snippet['authorProfileImageUrl'],
+                    'date'               => $snippet['publishedAt'],
+                    'comment_id'         => $comment['snippet']['topLevelComment']['id'],
+                    'hasReplyFromAuthor' => $hasReplyFromAuthor,
+                    'replies'            => $replies
                 ];
             }
-        }
+
+            $pageToken = $response->getNextPageToken();
+        } while ($pageToken);
 
         return $comments;
     }

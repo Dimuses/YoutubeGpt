@@ -20,9 +20,12 @@ class m231014_143523_create_comments_table extends Migration
             'text' => $this->text()->notNull(),
             'replied' => $this->tinyInteger(1)->defaultValue(0),
             'conversation' => $this->tinyInteger(1)->defaultValue(0),
+            'comment_id' => $this->string(36)->null(),
+            'parent_id' => $this->string(36)->null(),
             'avatar' => $this->string(128),
             'author' => $this->string(255),
             'comment_date' => $this->dateTime(),
+            'is_deleted' =>$this->boolean()->defaultValue(false),
             'created_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP'),
             'updated_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
         ]);

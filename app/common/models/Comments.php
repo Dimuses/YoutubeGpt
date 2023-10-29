@@ -20,6 +20,7 @@ use Yii;
  *
  * @property Video $video
  * @property mixed|null $comment_id
+ * @property int|mixed|null $parent_id
  */
 class Comments extends \yii\db\ActiveRecord
 {
@@ -40,7 +41,7 @@ class Comments extends \yii\db\ActiveRecord
             [['video_id', 'text'], 'required'],
             [['replied', 'conversation'], 'integer'],
             [['text'], 'string'],
-            [['created_at', 'updated_at', 'comment_date', 'comment_id'], 'safe'],
+            [['created_at', 'updated_at', 'comment_date', 'comment_id', 'parent_id'], 'safe'],
             [['avatar'], 'string', 'max' => 128],
             [['video_id'], 'exist', 'skipOnError' => true, 'targetClass' => Video::class, 'targetAttribute' => ['video_id' => 'video_id']],
         ];
@@ -72,5 +73,18 @@ class Comments extends \yii\db\ActiveRecord
     public function getVideo()
     {
         return $this->hasOne(Video::class, ['id' => 'video_id']);
+    }
+
+    public function getParent()
+    {
+        return $this->hasOne(self::class, ['comment_id' => 'parent_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getReplies()
+    {
+        return $this->hasMany(Comments::className(), ['parent_id' => 'comment_id']);
     }
 }

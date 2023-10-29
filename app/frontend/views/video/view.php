@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\bootstrap5\Tabs;
+use yii\web\View;
 
 /** @var yii\web\View $this */
 /** @var common\models\Video $model */
@@ -29,13 +30,16 @@ $this->params['breadcrumbs'][] = $this->title;
                     [
                         'label'   => 'Видео',
                         'content' => $this->render('video_tab', ['model' => $model]),
+                        'options' => ['id' => 'video-tab']
                     ],
                     [
                         'label'   => 'Описание',
                         'content' => $this->render('localizations_tab', ['model' => $model]),
+                        'options' => ['id' => 'description-tab']
                     ],
                     [
                         'label'   => 'Комментарии',
+                        'options' => ['id' => 'comments-tab'],
                         'content' => $this->render('comments_tab', [
                             'comments'   => $comments,
                             'model'      => $model,
@@ -48,6 +52,16 @@ $this->params['breadcrumbs'][] = $this->title;
     </div>
 
 <?php
+
+
+$js = <<<JS
+    let hash = window.location.hash;
+    if (hash) {
+        $('a[href="' + hash + '"]').tab('show');
+    }
+JS;
+$this->registerJs($js, View::POS_READY);
+
 $this->registerCss(<<<CSS
 .edit-button-container {
     position: relative;

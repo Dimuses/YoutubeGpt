@@ -22,7 +22,8 @@
         "yiisoft/yii2-authclient": "^2.2",
         "ext-fileinfo": "*",
         "dimuses/youtubegpt-chatgpt-providers": "dev-master",
-        "yiisoft/yii2-queue": "3.0.x-dev"
+        "yiisoft/yii2-queue": "3.0.x-dev",
+        "yidas/yii2-fontawesome": "dev-master"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",

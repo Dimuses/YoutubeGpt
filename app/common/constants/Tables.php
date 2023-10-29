@@ -10,4 +10,5 @@ class Tables
     public const COMMENTS = '{{%comments}}';
     public const ASSISTANT = '{{%assistant}}';
     public const QUEUE_JOBS = '{{%queue_jobs}}';
+    public const GENERATED_RESPONSES = '{{%generated_responses}}';
 }
