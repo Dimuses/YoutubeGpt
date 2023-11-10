@@ -1,5 +1,5 @@
 <?php
-namespace common\models\repositories;
+namespace common\repositories;
 
 use common\models\Assistant;
 use yii\db\ActiveRecord;

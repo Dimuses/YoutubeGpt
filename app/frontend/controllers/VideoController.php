@@ -4,9 +4,9 @@ namespace frontend\controllers;
 
 use common\components\YoutubeClient;
 use common\models\Comments;
-use common\models\repositories\AssistantRepository;
 use common\models\search\VideoSearch;
 use common\models\Video;
+use common\repositories\AssistantRepository;
 use frontend\models\forms\FindReplaceForm;
 use Yii;
 use yii\data\Pagination;
@@ -116,8 +116,10 @@ class VideoController extends Controller
         $video = $this->findModel($id);
 
         $query = Comments::find()
-            ->with('replies')
-            ->where(['video_id' => $video->video_id, 'parent_id' => null,]);
+            ->alias('c')
+            ->with(['replies' => fn($q) => $q->andWhere(['is_deleted' => [0, null]])])
+            ->where(['video_id' => $video->video_id, 'parent_id' => null, 'is_deleted' => [0, null]])
+            ->orderBy(['comment_date' => SORT_DESC]);
 
         if ($this->request->isGet && $filter = $this->request->get('filter')) {
             if ($filter == 'without-my-replies'){
@@ -126,7 +128,7 @@ class VideoController extends Controller
         }
 
         $count = $query->count();
-        $pagination = new Pagination(['totalCount' => $count, 'defaultPageSize' => 10]);
+        $pagination = new Pagination(['totalCount' => $count, 'defaultPageSize' => 20]);
 
         $comments = $query->offset($pagination->offset)
             ->limit($pagination->limit)

@@ -87,4 +87,17 @@ class Comments extends \yii\db\ActiveRecord
     {
         return $this->hasMany(Comments::className(), ['parent_id' => 'comment_id']);
     }
+    public function getAnswers()
+    {
+        return $this->hasMany(GeneratedAnswers::className(), ['comment_id' => 'comment_id'])
+            ->orderBy(['generated_at' => SORT_DESC]);
+    }
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getGeneratedReply()
+    {
+        return $this->hasOne(GeneratedAnswers::className(), ['comment_id' => 'comment_id'])
+            ->orderBy(['generated_at' => SORT_DESC]);
+    }
 }

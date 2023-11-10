@@ -25,7 +25,7 @@ class m231014_143523_create_comments_table extends Migration
             'avatar' => $this->string(128),
             'author' => $this->string(255),
             'comment_date' => $this->dateTime(),
-            'is_deleted' =>$this->boolean()->defaultValue(false),
+            'is_deleted' =>$this->boolean()->defaultValue(0),
             'created_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP'),
             'updated_at' => $this->timestamp()->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
         ]);

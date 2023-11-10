@@ -2,14 +2,13 @@
 
 namespace common\controllers;
 
-use common\models\repositories\AssistantRepository;
-use common\components\YoutubeClient;
 use common\models\Assistant;
 use common\models\search\AssistantSearch;
+use common\repositories\AssistantRepository;
 use Yii;
+use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
-use yii\filters\VerbFilter;
 
 /**
  * AssistantController implements the CRUD actions for Assistant model.

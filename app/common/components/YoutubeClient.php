@@ -2,7 +2,9 @@
 
 namespace common\components;
 
+use common\dto\CommentDTO;
 use Google\Exception;
+use Google\Service\YouTube\Comment;
 use Google_Client;
 use Google_Service_YouTube;
 use Google_Service_YouTube_Video;
@@ -159,19 +161,13 @@ class YoutubeClient
     }
 
     /**
-     * @return object[] {
-     *     @var string $text
-     *     @var string $author
-     *     @var string $avatar
-     *     @var string $date
-     *     @var string $comment_id
-     *     @var bool $hasReplyFromAuthor
-     * }
+     * @throws Exception
+     * @throws InvalidConfigException
      */
-    public function commentsListFromVideo($videoId)
+    public function commentsListFromVideo($videoId): array
     {
         $service = $this->getYoutubeService();
-        $comments = [];
+        $commentsDTO = [];
         $pageToken = null;
 
         $channelId = $this->getChannelId();
@@ -190,7 +186,7 @@ class YoutubeClient
                 $snippet = $comment['snippet']['topLevelComment']['snippet'];
 
                 $hasReplyFromAuthor = false;
-                $replies = [];
+                $repliesDTO = [];
 
                 if (isset($comment['snippet']['totalReplyCount']) && $comment['snippet']['totalReplyCount'] > 0) {
                     if (isset($comment['replies'])) {
@@ -198,41 +194,43 @@ class YoutubeClient
                             if ($reply['snippet']['authorChannelId']['value'] === $channelId) {
                                 $hasReplyFromAuthor = true;
                             }
-                            $replies[] = (object)[
-                                'text'     => $reply['snippet']['textDisplay'],
-                                'author'   => $reply['snippet']['authorDisplayName'],
-                                'avatar'   => $reply['snippet']['authorProfileImageUrl'],
-                                'date'     => $reply['snippet']['publishedAt'],
-                                'reply_id' => $reply['id']
-                            ];
+                            $repliesDTO[] = new CommentDTO(
+                                $reply['snippet']['textDisplay'],
+                                $reply['snippet']['authorDisplayName'],
+                                $reply['snippet']['authorProfileImageUrl'],
+                                $reply['snippet']['publishedAt'],
+                                $reply['id'],
+                                false
+                            );
                         }
                     }
                 }
 
-                $comments[] = (object)[
-                    'text'               => $snippet['textDisplay'],
-                    'author'             => $snippet['authorDisplayName'],
-                    'avatar'             => $snippet['authorProfileImageUrl'],
-                    'date'               => $snippet['publishedAt'],
-                    'comment_id'         => $comment['snippet']['topLevelComment']['id'],
-                    'hasReplyFromAuthor' => $hasReplyFromAuthor,
-                    'replies'            => $replies
-                ];
+                $commentsDTO[] = new CommentDTO(
+                    $snippet['textDisplay'],
+                    $snippet['authorDisplayName'],
+                    $snippet['authorProfileImageUrl'],
+                    $snippet['publishedAt'],
+                    $comment['snippet']['topLevelComment']['id'],
+                    $hasReplyFromAuthor,
+                    $repliesDTO
+                );
             }
 
             $pageToken = $response->getNextPageToken();
         } while ($pageToken);
 
-        return $comments;
+        return $commentsDTO;
     }
-
     /**
      * Replies to an existing comment.
      * @param string $parentId
      * @param string $text
-     * @return \Google\Service\YouTube\Comment
+     * @return array
+     * @throws Exception
+     * @throws InvalidConfigException
      */
-    public function replyToComment($parentId, $text)
+    public function replyToComment(string $parentId, string $text): array
     {
         $service = $this->getYoutubeService();
         $commentSnippet = new \Google_Service_YouTube_CommentSnippet();
@@ -242,7 +240,21 @@ class YoutubeClient
         $reply = new \Google_Service_YouTube_Comment();
         $reply->setSnippet($commentSnippet);
 
-        return $service->comments->insert('snippet', $reply);
+        $response = $service->comments->insert('snippet', $reply);
+
+        return [
+            'video_id' => $response->getSnippet()->getVideoId(),
+            'author' => $response->getSnippet()->getAuthorDisplayName(),
+            'text' => $response->getSnippet()->getTextOriginal(),
+            'replied' => 0,
+            'conversation' => 0,
+            'created_at' => new \yii\db\Expression('NOW()'),
+            'updated_at' => new \yii\db\Expression('NOW()'),
+            'avatar' => $response->getSnippet()->getAuthorProfileImageUrl(),
+            'comment_id' => $response->getId(),
+            'comment_date' => date('Y-m-d H:i:s', strtotime($response->getSnippet()->getPublishedAt())),
+            'parent_id' => $parentId
+        ];
     }
 
 

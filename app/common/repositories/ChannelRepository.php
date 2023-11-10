@@ -1,52 +1,52 @@
 <?php
 
-namespace common\models\repositories;
+namespace common\repositories;
 
-use common\models\Comments;
+use common\models\Channel;
 use yii\db\ActiveRecord;
 
-class CommentsRepository
+class ChannelRepository
 {
 
     /**
      *
-     * @return Comments[]|ActiveRecord[]
+     * @return Channel[]|ActiveRecord[]
      */
     public function getAll()
     {
-        return Comments::find()->all();
+        return Channel::find()->all();
     }
 
     /**
      *
      * @param int $id
-     * @return Comments|null
+     * @return Channel|null
      */
     public function getById($id)
     {
-        return Comments::findOne($id);
+        return Channel::findOne($id);
     }
 
     /**
      *
-     * @param Comments $comment
+     * @param Channel $channel
      * @return bool
      */
-    public function save(Comments $comment)
+    public function save(Channel $channel)
     {
-        return $comment->save();
+        return $channel->save();
     }
 
-    public function delete(Comments $comment)
+    public function delete(Channel $channel)
     {
-        return $comment->delete();
+        return $channel->delete();
     }
 
     public function getAllByUser($column = null): array
     {
         try {
             if (!\Yii::$app->user->isGuest) {
-                $query = Comments::find()->where(['user_id' => 1]);
+                $query = Channel::find()->where(['user_id' => 1]);
                 if ($column) {
                     return $query->select($column)->column();
                 } else {

@@ -1,0 +1,148 @@
+.reply-form{
+    float: right;
+}
+.preloader {
+    position: relative;
+    top: -35px;
+    left: -264px;
+    /*background-color: rgba(255, 255, 255, 0.7); !* Полупрозрачный фон *!*/
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.loader {
+    border: 8px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 8px solid #3498db; /* Цвет анимированного круга */
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+.reply-item {
+    margin-top: 5px;
+    padding-left: 20px; /* Добавьте отступ слева для визуального разделения */
+    font-size: 0.9em; /* Уменьшите размер шрифта для ответов */
+}
+
+.hidden-replies {
+    display: none; /* Скройте ответы по умолчанию */
+}
+
+.toggle-replies {
+    cursor: pointer;
+    color: #007BFF;
+    text-decoration: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.reply-form {
+    position: relative;  /* Делает элемент базовым для абсолютного позиционирования вложенных элементов */
+    padding-left: 40px;  /* Отступ слева, чтобы не налазить на стрелку "назад" */
+    padding-right: 40px;  /* Отступ справа, чтобы не налазить на стрелку "вперед" */
+    width: 100%;
+}
+
+.prev_reply, .next_reply {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #f1f1f1;
+    border: 1px solid #d4d4d4;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+.prev_reply:hover, .next_reply:hover {
+    background-color: #ddd;
+}
+
+.prev_reply {
+    left: 5px;  /* Располагает стрелку слева от текстовой области */
+}
+
+.next_reply {
+    right: 5px;  /* Располагает стрелку справа от текстовой области */
+}
+
+.floatingTextarea {
+    width: 100%;  /* Убедитесь, что текстовое поле занимает всю ширину контейнера */
+}
+
+.edit-button-container {
+    position: relative;
+}
+
+.edit-icon, .save-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+}
+
+.edit-icon {
+    display: inline-block;
+}
+
+.save-icon {
+    display: none;
+}
+
+.edit-mode .edit-icon {
+    display: block;
+}
+
+.edit-mode .save-icon {
+    display: inline-block;
+}
+
+.video-view {
+    margin-bottom: 40px;
+    border-bottom: 1px solid #e7e7e7;
+    padding-bottom: 20px;
+}
+
+.comments-section {
+    margin-top: 20px;
+}
+
+.comment-item {
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #e7e7e7;
+    border-radius: 5px;
+}
+
+.comment-item p {
+    margin-bottom: 10px;
+}
+
+.video-container {
+    position: relative;
+    padding-bottom: 56.25%;
+    padding-top: 30px;
+    height: 0;
+    overflow: hidden;
+}
+
+.video-container iframe,
+.video-container object,
+.video-container embed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+

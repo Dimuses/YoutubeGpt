@@ -1,7 +1,9 @@
 <?php
 use common\models\Comments;
+use frontend\assets\CommentsAsset;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\View;
 use yii\widgets\LinkPager;
@@ -14,9 +16,10 @@ use yii\widgets\Pjax;
 
 
 \yidas\yii\fontawesome\FontawesomeAsset::register($this);
+CommentsAsset::register($this);
 ?>
 
-<?php Pjax::begin(['id' => 'comments-pjax', 'timeout' => 2000]); ?>
+<?php Pjax::begin(['id' => 'comments-pjax', 'timeout' => 5000]); ?>
 
 <div class="comments-section">
     <h2>
@@ -90,12 +93,30 @@ use yii\widgets\Pjax;
 <?php
 
 $this->registerJs(<<<JS
-
     $('#showModalButton').on('click', function() {
         $('#assistantModal').modal('show');
     });
 
-    $(document).on('click', '.toggle-replies', function(e) {
+    $('.prev_reply').on('click', function() {
+        var textarea = $(this).closest('.reply-form').find('textarea');
+        var replies = textarea.data('replies');
+        var currentReplyIndex = textarea.data('current-reply-index') || 0;
+    
+        currentReplyIndex = (currentReplyIndex - 1 + replies.length) % replies.length; // Декремент и циклическое переключение
+        textarea.val(replies[currentReplyIndex]).data('current-reply-index', currentReplyIndex);
+    });
+
+    $('.next_reply').on('click', function() {
+        var textarea = $(this).closest('.reply-form').find('textarea');
+        var replies = textarea.data('replies');
+       
+        var currentReplyIndex = textarea.data('current-reply-index') || 0;
+    
+        currentReplyIndex = (currentReplyIndex + 1) % replies.length; // Инкремент и циклическое переключение
+        textarea.val(replies[currentReplyIndex]).data('current-reply-index', currentReplyIndex);
+    });
+
+    $(document).off('click', '.toggle-replies').on('click', '.toggle-replies', function(e) {
         e.preventDefault();
         const container = $(this).closest('.replies-container');
         const hiddenReplies = container.find('.hidden-replies');
@@ -149,19 +170,24 @@ $this->registerJs(<<<JS
     $('.generate_reply').click(function(e) {
         e.preventDefault(); 
         let preloader = $(this).closest('.reply-form').find('.preloader');
-        let textArea = $(this).closest('.reply-form').find('textarea');
+        let form = $(this).closest('form');
+        let comment_id = form.find('input[name="comment_id"]').val();
+        let video_id = form.find('input[name="video_id"]').val();
        
         preloader.show();
         let authorComment = $(this).closest('.comment-item').find('.comment-content').data('full-text');
+        let author = $(this).closest('.comment-item').find('.comment-author').text();
         $.ajax({
             url: '/comment/generate-reply', 
             method: 'POST',
             data: {
-                'comment': authorComment
+                'comment': author + authorComment,
+                'comment_id': comment_id,
+                'video_id': video_id
             },
             success: function(response) {
-                textArea.val(response);
                 preloader.hide();
+                $.pjax.reload({container: '#comments-pjax', timeout: 5000});
             },
             error: function() {
                 alert('Произошла ошибка при получении ответа.');
@@ -169,66 +195,40 @@ $this->registerJs(<<<JS
             }
         });
     });
-JS , View::POS_READY);
-
-$this->registerCss(<<<CSS
-.reply-form{
-    float: right;
-}
-.preloader {
-    position: relative;
-    top: -35px;
-    left: -264px;
-    /*background-color: rgba(255, 255, 255, 0.7); !* Полупрозрачный фон *!*/
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-}
-
-.loader {
-    border: 8px solid #f3f3f3;
-    border-radius: 50%;
-    border-top: 8px solid #3498db; /* Цвет анимированного круга */
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-}
-
-.reply-item {
-    margin-top: 5px;
-    padding-left: 20px; /* Добавьте отступ слева для визуального разделения */
-    font-size: 0.9em; /* Уменьшите размер шрифта для ответов */
-}
-
-.hidden-replies {
-    display: none; /* Скройте ответы по умолчанию */
-}
-
-.toggle-replies {
-    cursor: pointer;
-    color: #007BFF;
-    text-decoration: none;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-CSS
-);
-
-?>
+    $('.reply-forms').on('submit', function (e) {
+        e.preventDefault();
+        var formData = $(this).serialize(); 
+        let that = this;
+        $.ajax({
+            url: '/comment/reply-comment', 
+            type: 'POST',
+            data: formData,
+            beforeSend: function () {
+                $(that).find('.preloader').show();
+            },
+            success: function (response) {
+                console.log('Success:', response);
+                $.pjax.reload({container: '#comments-pjax', timeout: 5000});
+            },
+            error: function (xhr, status, error) {
+                console.error('Error:', error);
+            },
+            complete: function () {
+                $('.preloader').hide();
+            }
+        });
+    });
+JS, View::POS_READY); ?>
 <?php Pjax::end(); ?>
 
 <?php
 function displayComment($comment, $isReply = false) {
-    $isLong = strlen($comment->text) > 200;
+    $isLong = mb_strlen($comment->text) > 200;
     $padding = $isReply ? '60px' : '0px';
     ob_start();
     ?>
     <div class="row comment-item" style="margin-left: <?= $padding ?>;">
-        <div class="col-md-7">
+        <div class="col-md-6">
             <div class="row">
                 <div class="col-md-2" style="text-align: center">
                     <?= Html::img($comment->avatar, ['style' => 'border-radius:50%; text-align:center']) ?>
@@ -236,7 +236,7 @@ function displayComment($comment, $isReply = false) {
                     <p style="font-size:13px; font-weight: bold"><?= Yii::$app->formatter->asRelativeTime($comment->comment_date) ?></p>
                 </div>
                 <div class="col-md-10" style="padding-top: 13px">
-                    <strong><?= Html::encode($comment->author) ?>:</strong>
+                    <strong class="comment-author"><?= Html::encode($comment->author) ?>:</strong>
                     <p class="comment-content<?= $isLong ? ' shortened' : '' ?>"
                        data-full-text="<?= str_replace("\"","'", nl2br($comment->text)) ?>" style="display: contents">
                         <?= $isLong ? nl2br(mb_substr($comment->text, 0, 200)) . '...' : nl2br($comment->text) ?>
@@ -247,24 +247,34 @@ function displayComment($comment, $isReply = false) {
                 </div>
             </div>
         </div>
-        <div class="col-md-5">
+        <div class="col-md-6">
             <div class="reply-form">
-                <?= Html::beginForm(['comment/reply-comment'], 'post'); ?>
+                <?= Html::beginForm(['comment/reply-comment'], 'post', ['class' => 'reply-forms']); ?>
                 <?= Html::hiddenInput('comment_id', $comment->comment_id) ?>
                 <?= Html::hiddenInput('video_id', $comment->video_id) ?>
                 <div class="row">
-                    <div class="col-md-7">
+                    <div class="col-md-10">
                         <div class="form-floating">
-                            <textarea class="form-control floatingTextarea" name="reply" placeholder="Ответить на комментарий..."
-                                      id="floatingTextarea_<?= $comment->id ?>"></textarea>
+                            <?php if(count($comment->answers)  > 1) {
+                                echo Html::button('<i class="fas fa-arrow-left"></i>', ['class' => 'btn btn-secondary prev_reply']);
+                                echo Html::button('<i class="fas fa-arrow-right"></i>', ['class' => 'btn btn-secondary next_reply']);
+                            } ?>
+
+                            <textarea class="form-control floatingTextarea"
+                                      name="reply"
+                                      style="height: 100px; padding: 30px 45px;"
+                                      placeholder="Ответить на комментарий..."
+                                      id="floatingTextarea_<?= $comment->id ?>"
+                                      data-replies='<?= htmlspecialchars(Json::encode(ArrayHelper::getColumn($comment->answers, 'text'))) ?>' ><?= $comment?->generatedReply?->text ?></textarea>
+
                             <label for="floatingTextarea">Ответ</label>
                         </div>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-2">
                         <div class="btn-group" role="group">
-                            <?= Html::submitButton('<i class="fas fa-redo-alt"></i>', ['class' => 'btn btn-secondary generate_reply']); ?>
+                            <?= Html::button('<i class="fas fa-redo-alt"></i>', ['class' => 'btn btn-secondary generate_reply']); ?>
                             <?= Html::submitButton('<i class="fa fa-paper-plane" aria-hidden="true"></i>', ['class' => 'btn btn-primary save_reply']); ?>
-                            <?= Html::a('<i class="fas fa-eye"></i>', "https://www.youtube.com/watch?v={$comment->video_id}&lc={$comment->comment_id}", ['class' => 'btn btn-danger']) ?>
+                            <?= Html::a('<i class="fas fa-eye"></i>', "https://www.youtube.com/watch?v={$comment->video_id}&lc={$comment->comment_id}", ['class' => 'btn btn-danger', 'target' => '_blank']) ?>
                         </div>
                         <div class="preloader" style="display: none;">
                             <div class="loader"></div>
@@ -274,6 +284,7 @@ function displayComment($comment, $isReply = false) {
                 <?= Html::endForm() ?>
             </div>
         </div>
+
     </div>
     <?php return ob_get_clean();
 } ?>
