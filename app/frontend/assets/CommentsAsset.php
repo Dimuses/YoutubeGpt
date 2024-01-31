@@ -10,7 +10,9 @@ class CommentsAsset extends AssetBundle
     public $css = [
         'css/comments.css',
     ];
-    public $js = [];
+    public $js = [
+        'js/comments.js'
+    ];
     public $depends = [
         'yii\web\YiiAsset',
         'yii\bootstrap5\BootstrapAsset',

@@ -5,7 +5,7 @@ use yii\helpers\Html;
 /* @var $assistents array */
 ?>
 
-<h3>Настройки YouTube ассистента</h3>
+<h3><?= Yii::t('assistant', 'Assistant settings') ?></h3>
 <ul>
     <?php foreach ($assistants as $assistant): ?>
         <li>
@@ -15,5 +15,5 @@ use yii\helpers\Html;
 </ul>
 
 <?= Html::beginForm(['assistant/create'], 'post') ?>
-    <?= Html::submitButton('Создать нового ассистента', ['class' => 'btn btn-success']) ?>
+    <?= Html::submitButton(Yii::t('assistant', 'Create new assistant'), ['class' => 'btn btn-success']) ?>
 <?= Html::endForm() ?>

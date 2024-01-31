@@ -1,5 +1,6 @@
 <?php
 
+use frontend\assets\AssistantFormAsset;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
@@ -7,6 +8,9 @@ use yii\widgets\ActiveForm;
 /** @var yii\web\View $this */
 /** @var common\models\Assistant $model */
 /** @var yii\widgets\ActiveForm $form */
+
+AssistantFormAsset::register($this);
+
 ?>
 
 <div class="assistant-form">
@@ -26,7 +30,7 @@ use yii\widgets\ActiveForm;
         </div>
     </div>
 
-    <?= $form->field($model, 'parent_id')->dropDownList(ArrayHelper::map($assistants,'id', 'name'), ['prompt' => '-- Выберите ассистента --']) ?>
+    <?= $form->field($model, 'parent_id')->dropDownList(ArrayHelper::map($assistants,'id', 'name'), ['prompt' => Yii::t('assistant', 'Select assistant')]) ?>
     <?= $form->field($model, 'description')->textarea() ?>
     <br>
     <div class="form-group">
@@ -36,43 +40,3 @@ use yii\widgets\ActiveForm;
     <?php ActiveForm::end(); ?>
 
 </div>
-
-<?php
-$this->registerJs(/** @lang JavaScript */ "
-    var maxFields = 10;
-    var addButton = $('.add-button');
-    var wrapper = $('.input-fields-wrap');
-    var x = 1;
-
-    $(addButton).click(function(e) {
-        e.preventDefault();
-        if (x < maxFields) {
-            x++;
-            $(wrapper).append('<div class=\"row\"><div class=\"col-md-10\"><input type=\"text\" name=\"Assistant[settings][]\" class=\"form-control\"/></div><div class=\"col-md-2\"><button class=\"remove-button btn btn-danger\" style=\"width: 100%;\">-</button></div></div>');
-        }
-    });
-
-    $(wrapper).on('click', '.remove-button', function(e) {
-        e.preventDefault();
-        $(this).closest('.row').remove();
-        x--;
-    });
-");
-
-$this->registerCss(/** @lang CSS */ "
-     .remove-button {
-        cursor: pointer;
-    }
-    .input-fields-wrap .row:not(:first-child) {
-        margin-top: 10px;
-    }
-    .input-fields-wrap {
-        margin-top: 15px;
-    }
-");
-?>
-
-
-
-
-

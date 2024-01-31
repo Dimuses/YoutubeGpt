@@ -1,24 +1,18 @@
 <?php
+declare(strict_types=1);
 
 namespace frontend\controllers;
 
-use common\components\YoutubeClient;
 use common\jobs\GenerateRepliesJob;
-use common\models\Comments;
-use common\models\GeneratedAnswers;
-use common\models\Video;
-use common\repositories\AssistantRepository;
-use common\repositories\CommentsRepository;
-use common\repositories\GeneratedAnswersRepository;
-use dimuses\chatgpt\dto\AnswerSetting;
-use dimuses\chatgpt\dto\AnswerSettingsList;
-use dimuses\chatgpt\dto\Comment;
+use common\repositories\{AssistantRepository, CommentsRepository};
+use common\services\CommentsService;
+use common\services\VideoService;
+use dimuses\chatgpt\dto\{AnswerSetting, AnswerSettingsList, Comment};
 use dimuses\chatgpt\providers\ChatGptProvider;
 use Yii;
 use yii\filters\VerbFilter;
-use yii\helpers\Html;
 use yii\web\Controller;
-use yii\web\MethodNotAllowedHttpException;
+use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
 /**
@@ -37,87 +31,58 @@ class CommentController extends Controller
                 'verbs' => [
                     'class'   => VerbFilter::className(),
                     'actions' => [
-                        'delete' => ['POST'],
+                        'reply-comment' => ['POST'],
+                        'generate-reply' => ['POST'],
                     ],
                 ],
             ]
         );
     }
 
-
+    /**
+     * @param $id
+     * @param $module
+     * @param CommentsRepository $commentsRepository
+     * @param AssistantRepository $assistantRepository
+     * @param ChatGptProvider $gptProvider
+     * @param CommentsService $commentsService
+     * @param VideoService $videoService
+     * @param $config
+     */
     public function __construct($id,
         $module,
-        private YoutubeClient $youtubeClient,
-        private CommentsRepository $commentsRepository,
-        private AssistantRepository $assistantRepository,
-        private GeneratedAnswersRepository $generatedAnswersRepository,
-        private ChatGptProvider $gptProvider,
+        public CommentsRepository $commentsRepository,
+        public AssistantRepository $assistantRepository,
+        public ChatGptProvider $gptProvider,
+        public CommentsService $commentsService,
+        public VideoService $videoService,
         $config = [])
     {
         parent::__construct($id, $module, $config);
     }
 
-    public function actionGetComments($videoId)
+    /**
+     * @param $videoId
+     * @return Response
+     * @throws NotFoundHttpException
+     * @throws \Google\Exception
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionGetComments($videoId): Response
     {
-        $youtubeCommentsData = $this->youtubeClient->commentsListFromVideo($videoId);
-        $youtubeCommentsIds = [];
-
-        foreach ($youtubeCommentsData as $commentData) {
-            $youtubeCommentsIds[] = $commentData->comment_id;
-            if (isset($commentData->replies) && is_array($commentData->replies)) {
-                foreach ($commentData->replies as $replyData) {
-                    $youtubeCommentsIds[] = $replyData->comment_id;
-                }
-            }
+        $video = $this->videoService->findVideoByIdAndUser($videoId, Yii::$app->user->id);
+        if (!$video) {
+            throw new NotFoundHttpException(Yii::t('video', 'The video was not found or you do not have access to it'));
         }
-
-        $existingComments = Comments::find()->where(['video_id' => $videoId])->all();
-        $existingCommentIds = array_column($existingComments, 'comment_id');
-
-        $commentsToDelete = array_diff($existingCommentIds, $youtubeCommentsIds);
-        foreach ($commentsToDelete as $commentId) {
-            Comments::updateAll(['is_deleted' => 1], ['comment_id' => $commentId]);
-        }
-
-        foreach ($youtubeCommentsData as $commentData) {
-            $this->syncComment($videoId, $commentData);
-
-            if (isset($commentData->replies) && is_array($commentData->replies)) {
-                foreach ($commentData->replies as $replyData) {
-                    $this->syncComment($videoId, $replyData, $commentData->comment_id);
-                }
-            }
-        }
+        $this->commentsService->refreshComments($videoId, $this);
         return $this->redirect(\Yii::$app->request->referrer ?? ['video/index']);
     }
 
-    private function syncComment($videoId, $commentData, $parentId = null)
-    {
-        $comment = Comments::findOne(['comment_id' => $commentData->comment_id]);
-        if (!$comment) {
-            $comment = new Comments();
-            $comment->created_at = new \yii\db\Expression('NOW()');
-        } else {
-            $comment->is_deleted = 0;
-        }
 
-        $comment->video_id = $videoId;
-        $comment->author = $commentData->author;
-        $comment->text = $commentData->text;
-        $comment->replied = (int)$commentData->hasReplyFromAuthor;
-        $comment->conversation = $parentId ? 1 : 0;
-        $comment->updated_at = new \yii\db\Expression('NOW()');
-        $comment->avatar = $commentData->avatar;
-        $comment->comment_id = $commentData->comment_id;
-        $comment->comment_date = date('Y-m-d H:i:s', strtotime($commentData->date));
-        $comment->parent_id = $parentId;
-
-        if (!$comment->save()) {
-            Yii::error('Ошибка при сохранении комментария: ' . json_encode($comment->getErrors()));
-        }
-    }
-
-    public function actionGenerateReplies()
+    /**
+     * @return void
+     */
+    public function actionGenerateReplies(): void
     {
         $allCommentsIds = $this->commentsRepository->getAllByUser('id');
 
@@ -127,84 +92,47 @@ class CommentController extends Controller
         ]));
     }
 
+    /**
+     * @return string
+     */
     public function actionGenerateReply()
     {
         $assistant = $this->assistantRepository->getById(3);
-        if ($parent = $assistant->parent) {
-            $assistant->settings = array_merge($parent->settings, $assistant->settings);
-        }
+        $assistant->settings = array_merge(
+            (array)$assistant?->parent?->settings,
+            (array)$assistant->settings
+        );
         $settingsList = new AnswerSettingsList();
         foreach ($assistant->settings as $index => $item) {
             $settingsList->addSetting(new AnswerSetting($item));
         }
         $comment = $this->request->post('comment');
-
-        if(rand(0, 2) != 1){
-            $comment = explode(':', $comment);
-            $comment = $comment[1];
-        }
-
-
+        $comment = $this->commentsService->filterComment($comment);
         $commentId = $this->request->post('comment_id');
         $videoId = $this->request->post('video_id');
-        $video = Video::findOne(['video_id' => $videoId]);
+        $video = $this->videoService->findVideoByIdAndUser($videoId, Yii::$app->user->id);
 
-        $message = new Comment("Video: {$video->title}.". $comment);
+        $message = new Comment("Video: {$video?->title}." . $comment);
         $this->gptProvider->setSettingList($settingsList);
         $answer = $this->gptProvider->generateAnswer($message);
-
-        if ($answer->text) {
-            $reply = new GeneratedAnswers();
-            $reply->comment_id = $commentId;
-            $reply->video_id = $videoId;
-            $reply->text = $answer->text;
-            $reply->tokens = "0"; //TODO
-            $reply->generated_at = date('Y-m-d H:i:s');
-
-            $reply->save();
-        }
+        $this->commentsService->createAnswer($commentId, $videoId, $answer?->text);
         return $answer->text;
     }
 
-    public function actionReplyComment()
+    /**
+     * @return string
+     * @throws \Google\Exception
+     * @throws \yii\base\InvalidConfigException
+     * @throws \yii\web\MethodNotAllowedHttpException
+     */
+    public function actionReplyComment(): string
     {
-        if ($this->request->isPost) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $commentId = $this->request->post('comment_id');
-            $reply = $this->request->post('reply');
-            $videoId = $this->request->post('video_id');
-            if ($commentId && $videoId && $reply) {
-                $response = $this->youtubeClient->replyToComment($commentId, Html::encode($reply));
-
-                if ($response) {
-                    $replyComment = new Comments();
-                    $replyComment->video_id = $videoId;
-                    $replyComment->author = $response['author'];
-                    $replyComment->text = $response['text'];
-                    $replyComment->replied = $response['replied'];
-                    $replyComment->conversation = $response['conversation'];
-                    $replyComment->created_at = $response['created_at'];
-                    $replyComment->updated_at = $response['updated_at'];
-                    $replyComment->avatar = $response['avatar'];
-                    $replyComment->comment_id = $response['comment_id'];
-                    $replyComment->comment_date = $response['comment_date'];
-                    $replyComment->parent_id = $response['parent_id'];
-
-                    if (!$replyComment->save()) {
-                        Yii::error('Ошибка при сохранении ответа на комментарий: ' . json_encode($replyComment->getErrors()));
-                    } else {
-                        $replyComment->parent->replied = 1;
-                        if ($replyComment->parent->save()){
-                            $this->generatedAnswersRepository->deleteAllBy('comment_id', $commentId);
-                        }
-
-
-                    }
-                }
-            } else {
-                throw new MethodNotAllowedHttpException();
-            }
-        }
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $commentId = $this->request->post('comment_id');
+        $reply = $this->request->post('reply');
+        $videoId = $this->request->post('video_id');
+        $this->commentsService->createAndSaveReply($commentId, $videoId, $reply);
         return 'success';
     }
+
 }

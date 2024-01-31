@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models;
 
+use common\constants\Tables;
 use Yii;
 
 /**
@@ -26,9 +28,9 @@ class Video extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
+    public static function tableName(): string
     {
-        return '{{%videos}}';
+        return Tables::VIDEOS;
     }
 
     /**
@@ -53,12 +55,12 @@ class Video extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'id' => Yii::t('app', 'ID'),
-            'channel_id' => Yii::t('app', 'Channel ID'),
-            'video_id' => Yii::t('app', 'Video ID'),
-            'title' => Yii::t('app', 'Title'),
-            'description' => Yii::t('app', 'Description'),
-            'image' => Yii::t('app', 'Image'),
+            'id' => Yii::t('video', 'ID'),
+            'channel_id' => Yii::t('video', 'Channel ID'),
+            'video_id' => Yii::t('video', 'Video ID'),
+            'title' => Yii::t('video', 'Title'),
+            'description' => Yii::t('video', 'Description'),
+            'image' => Yii::t('video', 'Image'),
             'created_at' => Yii::t('app', 'Created At'),
             'updated_at' => Yii::t('app', 'Updated At'),
         ];
@@ -71,7 +73,7 @@ class Video extends \yii\db\ActiveRecord
      */
     public function getChannel()
     {
-        return $this->hasOne(Channel::class, ['id' => 'channel_id']);
+        return $this->hasOne(Channel::class, ['channel_id' => 'channel_id']);
     }
 
     /**

@@ -1,15 +1,14 @@
 <?php
+declare(strict_types=1);
 
 namespace common\components;
 
 use common\dto\CommentDTO;
+use common\dto\ReplyResponseDto;
 use Google\Exception;
-use Google\Service\YouTube\Comment;
 use Google_Client;
 use Google_Service_YouTube;
-use Google_Service_YouTube_Video;
 use Google_Service_YouTube_VideoLocalization;
-use GuzzleHttp\Client;
 use Yii;
 use yii\base\InvalidConfigException;
 use yii\base\InvalidRouteException;
@@ -18,14 +17,16 @@ use yii\web\Response;
 
 class YoutubeClient
 {
-
     /**
      * @throws Exception
      * @throws InvalidConfigException
      */
-    public function getYoutubeService(): Google_Service_YouTube
+    public function getYoutubeService($deffer = false): Google_Service_YouTube
     {
         $client = $this->getClient();
+        if ($deffer){
+            $client->setDefer(true);
+        }
         return new Google_Service_YouTube($client);
     }
 
@@ -64,8 +65,12 @@ class YoutubeClient
             die;
         }
         if ($client->isAccessTokenExpired()) {
-            $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
-            $session['token'] = $client->getAccessToken();
+            $cred = $client->fetchAccessTokenWithRefreshToken($client->getRefreshToken());
+            if (isset($cred['error'])){
+                Yii::$app->session->remove('token');
+            }else{
+                $session['token'] = $client->getAccessToken();
+            }
         }
         return $client;
     }
@@ -166,7 +171,6 @@ class YoutubeClient
      */
     public function commentsListFromVideo($videoId): array
     {
-        $service = $this->getYoutubeService();
         $commentsDTO = [];
         $pageToken = null;
 
@@ -181,7 +185,25 @@ class YoutubeClient
                 'pageToken'  => $pageToken,
                 'textFormat' => 'plainText',
             ];
-            $response = $service->commentThreads->listCommentThreads('snippet,replies', $params);
+            $etag = $this->getEtag(__METHOD__, $videoId, $pageToken);
+
+            try {
+                $request = $this->getYoutubeService(true)->commentThreads->listCommentThreads('snippet,replies', $params);
+                //$request = $request->withHeader("If-None-Match", $etag);
+                $response = $this->getClient()->execute($request);
+            } catch (\Throwable $e) {
+                if ($e->getCode() == 304) {
+                    continue;
+                } else {
+                    throw $e;
+                }
+            }
+
+            $newEtag = $response->getEtag();
+            if ($newEtag) {
+                $this->saveEtag(__METHOD__, $videoId, $pageToken, $newEtag);
+            }
+
             foreach ($response['items'] as $comment) {
                 $snippet = $comment['snippet']['topLevelComment']['snippet'];
 
@@ -222,15 +244,37 @@ class YoutubeClient
 
         return $commentsDTO;
     }
+
+    private function getEtag($method, $entityId, $pageToken)
+    {
+        $session = Yii::$app->session;
+        $etagKey = $this->generateEtagKey($method, $entityId, $pageToken);
+
+        return $session->get($etagKey);
+    }
+
+    private function saveEtag($method, $entityId, $pageToken, $etag)
+    {
+        $session = Yii::$app->session;
+        $etagKey = $this->generateEtagKey($method, $entityId, $pageToken);
+
+        $session->set($etagKey, $etag);
+    }
+
+    private function generateEtagKey($method, $entityId, $pageToken)
+    {
+        return "etag_{$method}_{$entityId}_" . md5((string)$pageToken);
+    }
+
     /**
      * Replies to an existing comment.
      * @param string $parentId
      * @param string $text
-     * @return array
+     * @return ReplyResponseDto
      * @throws Exception
      * @throws InvalidConfigException
      */
-    public function replyToComment(string $parentId, string $text): array
+    public function replyToComment(string $parentId, string $text): ReplyResponseDto
     {
         $service = $this->getYoutubeService();
         $commentSnippet = new \Google_Service_YouTube_CommentSnippet();
@@ -241,20 +285,7 @@ class YoutubeClient
         $reply->setSnippet($commentSnippet);
 
         $response = $service->comments->insert('snippet', $reply);
-
-        return [
-            'video_id' => $response->getSnippet()->getVideoId(),
-            'author' => $response->getSnippet()->getAuthorDisplayName(),
-            'text' => $response->getSnippet()->getTextOriginal(),
-            'replied' => 0,
-            'conversation' => 0,
-            'created_at' => new \yii\db\Expression('NOW()'),
-            'updated_at' => new \yii\db\Expression('NOW()'),
-            'avatar' => $response->getSnippet()->getAuthorProfileImageUrl(),
-            'comment_id' => $response->getId(),
-            'comment_date' => date('Y-m-d H:i:s', strtotime($response->getSnippet()->getPublishedAt())),
-            'parent_id' => $parentId
-        ];
+        return new ReplyResponseDto($response, $parentId);
     }
 
 
@@ -262,11 +293,11 @@ class YoutubeClient
      * Creates a new comment on a video.
      * @param string $videoId
      * @param string $text
-     * @return mixed
+     * @return \Google\Service\YouTube\CommentThread
      * @throws Exception
      * @throws InvalidConfigException
      */
-    public function createComment($videoId, $text)
+    public function createComment(string $videoId, string $text): \Google\Service\YouTube\CommentThread
     {
         $service = $this->getYoutubeService();
         $commentSnippet = new \Google_Service_YouTube_CommentSnippet();
@@ -313,13 +344,29 @@ class YoutubeClient
     public function getChannelId(): ?string
     {
         $service = $this->getYoutubeService();
-        $channelsResponse = $service->channels->listChannels('id', ['mine' => true]);
+        $etagKey = 'channel_id_etag';
+        $cachedChannelId = Yii::$app->session->get($etagKey);
 
-        if (!empty($channelsResponse->getItems())) {
-            return $channelsResponse->getItems()[0]->getId();
+        if ($cachedChannelId) {
+            return $cachedChannelId;
         }
 
+        $channelsResponse = $service->channels->listChannels('id,snippet', ['mine' => true]);
+
+        $newEtag = $channelsResponse->getEtag();
+        $currentEtag = Yii::$app->session->get('channel_etag');
+
+        if ($newEtag === $currentEtag) {
+            return Yii::$app->session->get('channel_id');
+        }
+
+        if (!empty($channelsResponse->getItems())) {
+            $channelId = $channelsResponse->getItems()[0]->getId();
+            Yii::$app->session->set('channel_id', $channelId);
+            Yii::$app->session->set('channel_etag', $newEtag);
+
+            return $channelId;
+        }
         return null;
     }
-
 }

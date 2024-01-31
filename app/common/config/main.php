@@ -1,5 +1,6 @@
 <?php
 
+use yii\web\User;
 use dimuses\chatgpt\providers\ChatGptProvider;
 
 return [
@@ -32,6 +33,5 @@ return [
             'port' => 6379,
             'database' => 0,
         ],
-
     ],
 ];

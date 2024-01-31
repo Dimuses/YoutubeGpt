@@ -5,10 +5,10 @@ use yii\helpers\Html;
 /** @var yii\web\View $this */
 /** @var common\models\Assistant $model */
 
-$this->title = Yii::t('app', 'Update Assistant: {name}', [
+$this->title = Yii::t('assistant', 'Update Assistant: {name}', [
     'name' => $model->name,
 ]);
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Assistants'), 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => Yii::t('assistant', 'Assistants'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => $model->name, 'url' => ['view', 'id' => $model->id]];
 $this->params['breadcrumbs'][] = Yii::t('app', 'Update');
 ?>

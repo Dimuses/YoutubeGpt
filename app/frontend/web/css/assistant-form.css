@@ -1,0 +1,9 @@
+.remove-button {
+    cursor: pointer;
+}
+.input-fields-wrap .row:not(:first-child) {
+    margin-top: 10px;
+}
+.input-fields-wrap {
+    margin-top: 15px;
+}

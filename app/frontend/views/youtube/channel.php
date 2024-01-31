@@ -1,7 +1,7 @@
 <?php
 use yii\helpers\Html;
 
-$this->title = 'Список видео';
+$this->title = Yii::t('video', 'Video list');
 ?>
 
 <h1><?= Html::encode($this->title) ?></h1>

@@ -1,51 +1,13 @@
-
 <?php
+
+use frontend\assets\LocalizationEditAsset;
 use yii\bootstrap5\Tabs;
 use yii\helpers\Html;
 
-$js = <<<JS
-    $(document).on("click", "#editBtn", function() {
-        $(".editable").each(function() {
-            $(this).find(".title-view, .desc-view").hide();
-            $(this).find(".title-edit, .desc-edit").show();
-        });
-        
-        $(this).after('<button id="saveBtn" class="btn btn-primary mt-3">Сохранить</button>  '); // Add save button
-        $(this).after('<button id="cancelBtn" class="btn btn-secondary mt-3 ml-2">Отмена</button>  '); // Add cancel button
-        $(this).remove();
-    });
+LocalizationEditAsset::register($this);
 
-    $(document).on("click", "#saveBtn", function() {
-        let dataToSend = {};
-        
-        $.ajax({
-            url: "/path/to/save", // TODO: замените на правильный URL
-            method: "POST",
-            data: dataToSend,
-            success: function(response) {
-                // TODO: обработка успешного ответа
-            },
-            error: function() {
-                alert("Произошла ошибка при сохранении.");
-            }
-        });
-    });
 
-    $(document).on("click", "#cancelBtn", function() {
-        $(".editable").each(function() {
-            $(this).find(".title-edit, .desc-edit").hide();
-            $(this).find(".title-view, .desc-view").show();
-        });
-        $("#saveBtn").remove();
-        $(this).remove();
-        $("#editBtnContainer").append('<button id="editBtn" class="btn btn-secondary mt-3">Редактировать</button>');
-    });
-
-JS;
-
-$this->registerJs($js);
-
-$localizations = $model->localizations;
+$localizations = $model?->localizations;
 $tabs = [];
 
 foreach ($localizations as $lang => $data) {
@@ -68,6 +30,17 @@ HTML;
 }
 echo '</br>';
 echo Tabs::widget(['items' => $tabs]);
-?>
 
-<div id="editBtnContainer"><button id="editBtn" class="btn btn-secondary mt-3">Редактировать</button></div>
+$editButtonText = Yii::t('app', 'Update');
+$saveButtonText = Yii::t('app', 'Save');
+$cancelButtonText = Yii::t('app', 'Cancel');
+
+echo
+"<div id='editBtnContainer'>
+    <button id='editBtn'
+            class='btn btn-secondary mt-3'
+            data-edit='$editButtonText'
+            data-save='$saveButtonText'
+            data-cancel='$cancelButtonText'>$editButtonText</button>
+</div>";
+?>

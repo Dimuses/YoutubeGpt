@@ -44,7 +44,37 @@ return [
             'rules' => [
             ],
         ],
+        'i18n' => [
+            'translations' => [
+                'assistant' => [
+                    'class' => 'yii\i18n\PhpMessageSource',
+                ],
+                'video' => [
+                    'class' => 'yii\i18n\PhpMessageSource',
+                ],
+            ],
+        ],
 
     ],
+ /*   'as access' => [
+        'class' => 'yii\filters\AccessControl',
+        'rules' => [
+            [
+                'controllers' => ['site'],
+                'allow' => true,
+            ],
+            [
+                'controllers' => ['*'], // Замените * на имя конкретного контроллера, если необходимо
+                'actions' => ['delete'],
+                'allow' => true,
+                'verbs' => ['POST'],
+            ],
+            [
+                'controllers' => ['*'],
+                'allow' => true,
+                'roles' => ['@'],
+            ],
+        ],
+    ]*/
     'params' => $params,
 ];

@@ -1,15 +1,17 @@
 <?php
+declare(strict_types=1);
 
 namespace frontend\controllers;
 
 use common\components\YoutubeClient;
-use common\models\Comments;
 use common\models\search\VideoSearch;
 use common\models\Video;
-use common\repositories\AssistantRepository;
+use common\services\AssistantService;
+use common\services\VideoService;
 use frontend\models\forms\FindReplaceForm;
+use frontend\models\forms\VideoAddForm;
+use frontend\models\search\CommentSearch;
 use Yii;
-use yii\data\Pagination;
 use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -41,52 +43,60 @@ class VideoController extends Controller
         $id,
         $module,
         private YoutubeClient $youtubeService,
-        private AssistantRepository $assistantRepository,
+        private AssistantService $assistantService,
+        private VideoService $videoService,
         $config = [])
     {
         parent::__construct($id, $module, $config);
     }
 
-    public function actionCreateAll()
+    public function actionCreateAll(): \yii\web\Response
     {
         $channelId = $this->youtubeService->getChannelId();
         $videos = $this->youtubeService->videoListByChannel('snippet', ['channelId' => $channelId, 'maxResults' => 50]);
 
         foreach ($videos as $videoData) {
-            $video = Video::findOne(['video_id' => $videoData['videoId']]);
-            if ($video === null) {
-                $video = new Video();
-            }
-
-            $video->channel_id = $channelId;
-            $video->video_id = $videoData['videoId'];
-
-            if ($video->title !== $videoData['title']) {
-                $video->title = $videoData['title'];
-            }
-
-            $fileName = $video->video_id;
-            $extension = pathinfo(parse_url($videoData['thumbnailUrl'], PHP_URL_PATH), PATHINFO_EXTENSION);
-            $fullFileName = "$fileName.$extension";
-
-            if ($video->image !== $fullFileName) {
-                $imagePath = '@common/files/videos/' . $fullFileName;
-                file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoData['thumbnailUrl']));
-                $video->image = $fullFileName;
-            }
-
-            $videoLanguage = $videoData['defaultLanguage'] ?? null;
-            $video->description = $videoData['description'];
-            $video->localizations = $videoData['localizations'];
-            $video->default_language = $videoLanguage;
-            if ($video->save()) {
-                Yii::info("Видео {$video->title} сохранено в базу данных", 'app');
-            } else {
-                Yii::error("Ошибка при сохранении видео {$video->title} в базу данных: " . json_encode($video->errors), 'app');
-            }
+          $this->processVideo($videoData, $channelId);
         }
         return $this->redirect(['index']);
     }
+
+    private function processVideo(array $videoData, string $channelId): void
+    {
+        $video = Video::findOne(['video_id' => $videoData['videoId']]);
+        if ($video === null) {
+            $video = new Video();
+        }
+
+        $video->channel_id = $channelId;
+        $video->video_id = $videoData['videoId'];
+
+        if ($video->title !== $videoData['title']) {
+            $video->title = $videoData['title'];
+        }
+
+        $fileName = $video->video_id;
+        $extension = pathinfo(parse_url($videoData['thumbnailUrl'], PHP_URL_PATH), PATHINFO_EXTENSION);
+        $fullFileName = "$fileName.$extension";
+
+        if ($video->image !== $fullFileName) {
+            $imagePath = '@common/files/videos/' . $fullFileName;
+            file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoData['thumbnailUrl']));
+            $video->image = $fullFileName;
+        }
+
+        $videoLanguage = $videoData['defaultLanguage'] ?? null;
+        $video->description = $videoData['description'];
+        $video->localizations = $videoData['localizations'];
+        $video->default_language = $videoLanguage;
+
+        if ($video->save()) {
+            Yii::info("Видео {$video->title} сохранено в базу данных", 'app');
+        } else {
+            Yii::error("Ошибка при сохранении видео {$video->title} в базу данных: " . json_encode($video->errors), 'app');
+        }
+    }
+
 
 
     /**
@@ -94,7 +104,7 @@ class VideoController extends Controller
      *
      * @return string
      */
-    public function actionIndex()
+    public function actionIndex(): string
     {
         $searchModel = new VideoSearch();
         $dataProvider = $searchModel->search($this->request->queryParams);
@@ -111,40 +121,22 @@ class VideoController extends Controller
      * @return string
      * @throws NotFoundHttpException if the model cannot be found
      */
-    public function actionView($id)
+    public function actionView($id): string
     {
         $video = $this->findModel($id);
-
-        $query = Comments::find()
-            ->alias('c')
-            ->with(['replies' => fn($q) => $q->andWhere(['is_deleted' => [0, null]])])
-            ->where(['video_id' => $video->video_id, 'parent_id' => null, 'is_deleted' => [0, null]])
-            ->orderBy(['comment_date' => SORT_DESC]);
-
-        if ($this->request->isGet && $filter = $this->request->get('filter')) {
-            if ($filter == 'without-my-replies'){
-                $query->andWhere(['replied' => false]);
-            }
-        }
-
-        $count = $query->count();
-        $pagination = new Pagination(['totalCount' => $count, 'defaultPageSize' => 20]);
-
-        $comments = $query->offset($pagination->offset)
-            ->limit($pagination->limit)
-            ->all();
-
+        $commentSearch = new CommentSearch($video, Yii::$app->request->get('filter'));
+        list($pagination, $comments) = $commentSearch->search();
 
         return $this->render('view', [
             'model' => $video,
             'comments' => $comments,
             'pagination' => $pagination,
-            'assistants' => $this->assistantRepository->getAll()
+            'assistants' => $this->assistantService->getAllAssistants()
         ]);
     }
 
 
-    public function actionFindAndReplace()
+    public function actionFindAndReplace(): string
     {
         $searchModel = new FindReplaceForm();
         $foundVideos = [];
@@ -190,18 +182,15 @@ class VideoController extends Controller
      * If creation is successful, the browser will be redirected to the 'view' page.
      * @return string|\yii\web\Response
      */
-    public function actionCreate()
+    public function actionCreate(): \yii\web\Response|string
     {
-        $model = new Video();
+        $model = Yii::createObject(VideoAddForm::class);
 
         if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->save()) {
-                return $this->redirect(['view', 'id' => $model->id]);
+            if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+                return $this->redirect(['index']);
             }
-        } else {
-            $model->loadDefaultValues();
         }
-
         return $this->render('create', [
             'model' => $model,
         ]);
@@ -214,9 +203,10 @@ class VideoController extends Controller
      * @return string|\yii\web\Response
      * @throws NotFoundHttpException if the model cannot be found
      */
-    public function actionUpdate($id)
+    public function actionUpdate($id): \yii\web\Response|string
     {
-        $model = $this->findModel($id);
+        //TODO недоступно в данном релизе
+       /* $model = $this->findModel($id);
 
         if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
             return $this->redirect(['view', 'id' => $model->id]);
@@ -224,7 +214,7 @@ class VideoController extends Controller
 
         return $this->render('update', [
             'model' => $model,
-        ]);
+        ]);*/
     }
 
     /**
@@ -237,7 +227,6 @@ class VideoController extends Controller
     public function actionDelete($id)
     {
         $this->findModel($id)->delete();
-
         return $this->redirect(['index']);
     }
 
@@ -250,11 +239,9 @@ class VideoController extends Controller
      */
     protected function findModel($id)
     {
-        if (($model = Video::findOne(['id' => $id])) !== null) {
-            return $model;
-        }
+        $model = $this->videoService->findVideoByIdAndUser($id, Yii::$app->user->id);
+        return  $model ?: throw new NotFoundHttpException(Yii::t('video', 'The requested page does not exist.'));
 
-        throw new NotFoundHttpException(Yii::t('app', 'The requested page does not exist.'));
     }
 
     public function actionImage($name)
@@ -269,7 +256,8 @@ class VideoController extends Controller
             Yii::$app->response->headers->add('Content-Type', $mimeType);
             return Yii::$app->response->sendFile($path);
         } else {
-            throw new \yii\web\NotFoundHttpException('Изображение не найдено.');
+            throw new \yii\web\NotFoundHttpException(Yii::t('video', 'Image not found'));
         }
     }
+
 }

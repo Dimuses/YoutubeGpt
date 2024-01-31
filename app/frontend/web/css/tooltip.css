@@ -1,0 +1,14 @@
+
+.tooltip {
+    font-size: 14px !important;  /* Adjust font size as needed */
+}
+
+.tooltip .tooltip-inner {
+    max-width: 600px; /* Increase width of tooltip */
+    padding: 10px 15px;  /* Add more padding for spacing */
+    text-align: left;  /* Left align text inside tooltip */
+    background-color: #333;  /* Dark background color for contrast */
+    color: #ffffff;  /* White text color */
+    border-radius: 5px;  /* Rounded corners */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);  /* Slight shadow for depth */
+}

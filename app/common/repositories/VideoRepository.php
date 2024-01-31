@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace common\repositories;
 
 use common\models\Video;
@@ -7,12 +9,17 @@ use yii\db\ActiveRecord;
 class VideoRepository
 {
     /**
-     *
-     * @return Video[]|ActiveRecord[]
+     * @param $videoId
+     * @param $userId
+     * @return array|Video|\yii\db\ActiveRecord|null
      */
-    public function getAll()
+    public function getByIdAndUser($videoId, $userId): \yii\db\ActiveRecord|array|null|Video
     {
-        return Video::find()->all();
+        return Video::find()
+            ->alias('v')
+            ->joinWith('channel c')
+            ->where(['v.id' => $videoId, 'c.user_id' => $userId])
+            ->one();
     }
 
     /**
@@ -23,6 +30,15 @@ class VideoRepository
     public function getById($id)
     {
         return Video::findOne($id);
+    }
+
+    /**
+     *
+     * @return Video[]|ActiveRecord[]
+     */
+    public function getAll()
+    {
+        return Video::find()->all();
     }
 
     /**

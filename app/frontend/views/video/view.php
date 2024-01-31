@@ -8,7 +8,7 @@ use yii\web\View;
 /** @var common\models\Video $model */
 
 $this->title = $model->title;
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Videos'), 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => Yii::t('video', 'Videos'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 \yii\web\YiiAsset::register($this);
 ?>
@@ -28,17 +28,17 @@ $this->params['breadcrumbs'][] = $this->title;
             <?= Tabs::widget([
                 'items' => [
                     [
-                        'label'   => 'Видео',
+                        'label'   => Yii::t('video', 'Video'),
                         'content' => $this->render('video_tab', ['model' => $model]),
                         'options' => ['id' => 'video-tab']
                     ],
                     [
-                        'label'   => 'Описание',
+                        'label'   => Yii::t('video', 'Description'),
                         'content' => $this->render('localizations_tab', ['model' => $model]),
                         'options' => ['id' => 'description-tab']
                     ],
                     [
-                        'label'   => 'Комментарии',
+                        'label'   => Yii::t('video', 'Comments'),
                         'options' => ['id' => 'comments-tab'],
                         'content' => $this->render('comments_tab', [
                             'comments'   => $comments,
@@ -50,15 +50,3 @@ $this->params['breadcrumbs'][] = $this->title;
             ]) ?>
         </div>
     </div>
-
-<?php
-
-
-$js = <<<JS
-    let hash = window.location.hash;
-    if (hash) {
-        $('a[href="' + hash + '"]').tab('show');
-    }
-JS;
-$this->registerJs($js, View::POS_READY);
-?>

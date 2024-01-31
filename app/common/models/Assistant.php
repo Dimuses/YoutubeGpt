@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models;
 
+use common\constants\Tables;
 use Yii;
 
 /**
@@ -27,9 +29,9 @@ class Assistant extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
+    public static function tableName(): string
     {
-        return '{{%assistant}}';
+        return Tables::ASSISTANT;
     }
 
     /**

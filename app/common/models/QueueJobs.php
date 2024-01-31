@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models;
 
+use common\constants\Tables;
 use Yii;
 
 /**
@@ -24,9 +26,9 @@ class QueueJobs extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
+    public static function tableName(): string
     {
-        return '{{%queue_jobs}}';
+        return Tables::QUEUE_JOBS;
     }
 
     /**

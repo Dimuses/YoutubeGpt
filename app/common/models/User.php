@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models;
 
+use common\constants\Tables;
 use Yii;
 use yii\base\NotSupportedException;
 use yii\behaviors\TimestampBehavior;
@@ -33,9 +35,9 @@ class User extends ActiveRecord implements IdentityInterface
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
+    public static function tableName(): string
     {
-        return '{{%user}}';
+        return Tables::USER;
     }
 
     /**

@@ -34,15 +34,17 @@ AppAsset::register($this);
             'class' => 'navbar navbar-expand-md navbar-dark bg-dark fixed-top',
         ],
     ]);
-    $menuItems = [
-        ['label' => 'Home', 'url' => ['/site/index']],
-        ['label' => 'Videos', 'url' => ['/video/index']],
-        ['label' => 'Assistants', 'url' => ['/assistant/index']],
-        ['label' => 'Find and replace', 'url' => ['/video/find-and-replace']],
 
-    ];
     if (Yii::$app->user->isGuest) {
         $menuItems[] = ['label' => 'Signup', 'url' => ['/site/signup']];
+    }else{
+        $menuItems = [
+            ['label' => 'Home', 'url' => ['/site/index']],
+            ['label' => 'Videos', 'url' => ['/video/index']],
+            ['label' => 'Assistants', 'url' => ['/assistant/index']],
+            ['label' => 'Find and replace', 'url' => ['/video/find-and-replace']],
+
+        ];
     }
 
     echo Nav::widget([

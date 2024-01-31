@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models;
 
@@ -23,7 +24,7 @@ class GeneratedAnswers extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
+    public static function tableName(): string
     {
         return Tables::GENERATED_ANSWERS;
     }

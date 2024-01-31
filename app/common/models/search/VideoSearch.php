@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace common\models\search;
 
@@ -40,7 +41,9 @@ class VideoSearch extends Video
      */
     public function search($params)
     {
-        $query = Video::find();
+        $query = Video::find()
+            ->joinWith('channel c')
+            ->where(['c.user_id' => \Yii::$app->user->id]);
 
         // add conditions that should always apply here
 
