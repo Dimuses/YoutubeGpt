@@ -5,6 +5,7 @@ namespace common\components;
 
 use common\dto\CommentDTO;
 use common\dto\ReplyResponseDto;
+use common\dto\VideoDto;
 use Google\Exception;
 use Google_Client;
 use Google_Service_YouTube;
@@ -80,8 +81,9 @@ class YoutubeClient
         $service = $this->getYoutubeService();
         $videos = [];
 
+        $channelId = ArrayHelper::getValue($params, 'channelId');
         $searchParams = [
-            'channelId'  => ArrayHelper::getValue($params, 'channelId'),
+            'channelId'  => $channelId,
             'type'       => 'video',
             'maxResults' => ArrayHelper::getValue($params, 'maxResults'),
             'order'      => 'date'
@@ -105,14 +107,15 @@ class YoutubeClient
 
             $localizations = $this->getVideoLocalizations($videoId);
 
-            $videos[] = [
-                'videoId'         => $videoId,
-                'title'           => $title,
-                'thumbnailUrl'    => $thumbnailUrl,
-                'description'     => $fullDescription,
-                'defaultLanguage' => $defaultLanguage,
-                'localizations'   => $localizations
-            ];
+            $videos[] = new VideoDto(
+                $videoId,
+                $title,
+                $thumbnailUrl,
+                $fullDescription,
+                $defaultLanguage,
+                $localizations,
+                $channelId
+            );
         }
 
         return $videos;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace frontend\controllers;
 
 use common\components\YoutubeClient;
+use common\dto\VideoDto;
 use common\models\search\VideoSearch;
 use common\models\Video;
 use common\services\AssistantService;
@@ -55,49 +56,50 @@ class VideoController extends Controller
         $channelId = $this->youtubeService->getChannelId();
         $videos = $this->youtubeService->videoListByChannel('snippet', ['channelId' => $channelId, 'maxResults' => 50]);
 
-        foreach ($videos as $videoData) {
-          $this->processVideo($videoData, $channelId);
+        foreach ($videos as $videoDto) {
+          $this->processVideo($videoDto);
         }
         return $this->redirect(['index']);
     }
 
-    private function processVideo(array $videoData, string $channelId): void
+    private function processVideo(VideoDto $videoDto): void
     {
-        $video = Video::findOne(['video_id' => $videoData['videoId']]);
+        $video = Video::findOne(['video_id' => $videoDto->videoId]);
         if ($video === null) {
             $video = new Video();
         }
 
-        $video->channel_id = $channelId;
-        $video->video_id = $videoData['videoId'];
+        $video->channel_id = $videoDto->channelId;
+        $video->video_id = $videoDto->videoId;
 
-        if ($video->title !== $videoData['title']) {
-            $video->title = $videoData['title'];
+        if ($video->title !== $videoDto->title) {
+            $video->title = $videoDto->title;
         }
 
         $fileName = $video->video_id;
-        $extension = pathinfo(parse_url($videoData['thumbnailUrl'], PHP_URL_PATH), PATHINFO_EXTENSION);
+        $extension = pathinfo(parse_url($videoDto->thumbnailUrl, PHP_URL_PATH), PATHINFO_EXTENSION);
         $fullFileName = "$fileName.$extension";
 
         if ($video->image !== $fullFileName) {
             $imagePath = '@common/files/videos/' . $fullFileName;
-            file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoData['thumbnailUrl']));
+            file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoDto->thumbnailUrl));
             $video->image = $fullFileName;
         }
 
-        $videoLanguage = $videoData['defaultLanguage'] ?? null;
-        $video->description = $videoData['description'];
-        $video->localizations = $videoData['localizations'];
+        $videoLanguage = $videoDto->defaultLanguage ?? null;
+        $video->description = $videoDto->description;
+        $video->localizations = $videoDto->localizations;
         $video->default_language = $videoLanguage;
 
         if ($video->save()) {
-            Yii::info("Видео {$video->title} сохранено в базу данных", 'app');
+            Yii::info(Yii::t('video', 'Video {title} saved in the database', ['title' => $video->title]), 'app');
         } else {
-            Yii::error("Ошибка при сохранении видео {$video->title} в базу данных: " . json_encode($video->errors), 'app');
+            Yii::error(Yii::t('video', 'Error saving video {title} to the database: {errors}', [
+                'title' => $video->title,
+                'errors' => json_encode($video->errors),
+            ]), 'app');
         }
     }
-
-
 
     /**
      * Lists all Video models.
@@ -184,10 +186,13 @@ class VideoController extends Controller
      */
     public function actionCreate(): \yii\web\Response|string
     {
+        /** @var VideoAddForm $model */
         $model = Yii::createObject(VideoAddForm::class);
 
         if ($this->request->isPost) {
             if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+                $video = $model->getVideo();
+                $this->processVideo($video);
                 return $this->redirect(['index']);
             }
         }

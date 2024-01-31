@@ -4,6 +4,10 @@ declare(strict_types=1);
 namespace frontend\models\forms;
 
 use common\components\YoutubeClient;
+use common\dto\VideoDto;
+use common\models\Channel;
+use common\services\ChannelService;
+use Yii;
 use yii\base\Model;
 
 class VideoAddForm extends Model
@@ -13,9 +17,9 @@ class VideoAddForm extends Model
     private $video;
 
     public function __construct(
-        public YoutubeClient $client,
+        public YoutubeClient  $client,
         public ChannelService $channelService,
-        $config = [])
+                              $config = [])
 
     {
         parent::__construct($config);
@@ -29,21 +33,19 @@ class VideoAddForm extends Model
         ];
     }
 
-    public function validateVideo($attribute, $params)
+    public function validateVideo($attribute, $params): void
     {
         $videoId = $this->extractVideoId($this->video_url);
 
         if (!$videoId) {
-            $this->addError($attribute, 'Невозможно извлечь ID видео из URL.');
+            $this->addError($attribute, Yii::t('video', 'Unable to extract video ID from URL.'));
             return;
         }
-
         $channelId = $this->getChannelIdByVideoId($videoId);
 
         if (!$channelId) {
-            $this->addError($attribute, 'Некорректный URL видео или видео не существует.');
+            $this->addError($attribute, Yii::t('video', 'Incorrect video URL or video does not exist.'));
         }
-
     }
 
     private function extractVideoId($url)
@@ -54,16 +56,28 @@ class VideoAddForm extends Model
 
     private function getChannelIdByVideoId($videoId): ?string
     {
-        $youtube = $this->client->getYoutubeService();
-        $response = $youtube->videos->listVideos('snippet', array('id' => $videoId));
+        /** @var Channel $channelModel */
+        $channelModel = $this->channelService->getUserChannel(\Yii::$app->user->id);
+        $params = [
+            'channelId' => $channelModel?->channel_id,
+            'maxResults' => 50,
 
-        if (!empty($response->getItems())) {
-            $this->video = $response->getItems()[0];
-            $channelId = $this->video->getSnippet()->getChannelId();
+        ];
 
+        $videos = $this->client->videoListByChannel('snippet', $params);
 
-        } else {
-            return null;
+        /** @var VideoDto $video */
+        foreach ($videos as $video) {
+            if ($video->videoId === $videoId) {
+                $this->video = $video;
+                return $video->channelId;
+            }
         }
+        return null;
+    }
+
+    public function getVideo()
+    {
+        return $this->video;
     }
 }
