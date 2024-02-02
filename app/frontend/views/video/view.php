@@ -34,7 +34,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     ],
                     [
                         'label'   => Yii::t('video', 'Description'),
-                        'content' => $this->render('localizations_tab', ['model' => $model]),
+                        'content' => $this->render('localizations_tab', ['model' => $model, 'videoId' => $videoId]),
                         'options' => ['id' => 'description-tab']
                     ],
                     [

@@ -9,6 +9,7 @@ use common\models\{
     Comments,
     GeneratedAnswers
 };
+use common\repositories\CommentsRepository;
 use common\repositories\GeneratedAnswersRepository;
 use dimuses\chatgpt\dto\Answer;
 use Google\Exception;
@@ -27,9 +28,11 @@ use yii\web\MethodNotAllowedHttpException;
  */
 class CommentsService
 {
+
     public function __construct(
-        public YoutubeClient              $youtubeClient,
-        public GeneratedAnswersRepository $generatedAnswersRepository,
+        private YoutubeClient              $youtubeClient,
+        private GeneratedAnswersRepository $generatedAnswersRepository,
+        private CommentsRepository $comnentsRepository,
     ){ }
 
     public function syncComment($videoId, CommentDTO $commentDto, $parentId = null): bool
@@ -195,6 +198,11 @@ class CommentsService
             $comment = $comment[1];
         }
         return $comment;
+    }
+
+    public function getAllWithoutReply($videoId, int|string|null $id)
+    {
+        return $this->comnentsRepository->getAllWithoutReply($videoId, $userId);
     }
 
 

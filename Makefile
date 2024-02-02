@@ -1,6 +1,6 @@
 .PHONY: build up start stop exec clean
 
-I = backend
+I = frontend
 CONTAINER_NAME = my-docker-container
 COMPOSE_FILE = docker-compose.yml
 DOCKER_EXEC = docker-compose exec $(I)

@@ -3,6 +3,7 @@
 use frontend\assets\LocalizationEditAsset;
 use yii\bootstrap5\Tabs;
 use yii\helpers\Html;
+use yii\helpers\Url;
 
 LocalizationEditAsset::register($this);
 
@@ -41,6 +42,7 @@ echo
             class='btn btn-secondary mt-3'
             data-edit='$editButtonText'
             data-save='$saveButtonText'
-            data-cancel='$cancelButtonText'>$editButtonText</button>
+            data-cancel='$cancelButtonText'
+            data-save-url='" . Url::to(['/video/update-localization', 'videoId' => $videoId]) . "'>$editButtonText</button>
 </div>";
 ?>

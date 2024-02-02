@@ -83,4 +83,9 @@ class CommentsRepository
 
         return $replyComment->save();
     }
+
+    public function getAllWithoutReply($videoId, $userId)
+    {
+        Comments::find()->where(['video_id']);
+    }
 }

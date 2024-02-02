@@ -161,6 +161,7 @@ class YoutubeClient
 
         if ($defaultLanguage && isset($localizations[$defaultLanguage])) {
             $currentVideo->getSnippet()->setDescription($localizations[$defaultLanguage]['description']);
+            unset($newLocalizations[$defaultLanguage]);
         }
         $currentVideo->setLocalizations($newLocalizations);
 

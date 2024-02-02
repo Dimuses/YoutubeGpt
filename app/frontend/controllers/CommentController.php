@@ -82,9 +82,9 @@ class CommentController extends Controller
     /**
      * @return void
      */
-    public function actionGenerateReplies(): void
+    public function actionGenerateReplies($videoId): void
     {
-        $allCommentsIds = $this->commentsRepository->getAllByUser('id');
+        $allCommentsIds = $this->commentsService->getAllWithoutReply($videoId, Yii::$app->user->id);
 
         Yii::$app->queue->push(new GenerateRepliesJob([
             'comments'    => $allComments,

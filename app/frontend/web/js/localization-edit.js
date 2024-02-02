@@ -1,36 +1,41 @@
 $(document).on("click", "#editBtn", function() {
-    var saveText = $(this).data("save");
-    var cancelText = $(this).data("cancel");
+    let saveText = $(this).data("save");
+    let cancelText = $(this).data("cancel");
+    let url = $(this).data("save-url");
 
     $(".editable").each(function() {
         $(this).find(".title-view, .desc-view").hide();
         $(this).find(".title-edit, .desc-edit").show();
     });
 
-    $(this).after('<button id="saveBtn" class="btn btn-primary m-1">' + saveText + '</button>');
-    $(this).after('<button id="cancelBtn" class="btn btn-secondary m-1">' + cancelText + '</button>');
+    $(this).after(`<button id="saveBtn" class="btn btn-primary m-1" data-url="${url}">${saveText}</button>`);
+    $(this).after(`<button id="cancelBtn" class="btn btn-secondary m-1">${cancelText}</button>`);
     $(this).hide();
 });
 
 $(document).on("click", "#saveBtn", function() {
-    let dataToSend = {};
+    let dataToSend = {localizations: {}};
+    let url = $(this).data('url');
+
     $(".editable").each(function() {
         var lang = $(this).data("lang");
-        dataToSend[lang] = {
+        dataToSend.localizations[lang] = {
             title: $(this).find(".title-edit").val(),
             description: $(this).find(".desc-edit").val()
         };
     });
 
     $.ajax({
-        url: "/path/to/save", // Замените на ваш URL
+        url: url,
         method: "POST",
         data: dataToSend,
         success: function(response) {
-            // Обработка успешного ответа
+            location.reload();
         },
-        error: function() {
-            alert("Error was occurred");
+        error: function(xhr, status, error) {
+            console.log("Error status: " + status);
+            console.log("Error message: " + error);
+            console.log("Error response: " + xhr.responseText);
         }
     });
 });

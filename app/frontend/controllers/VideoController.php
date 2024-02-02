@@ -57,48 +57,9 @@ class VideoController extends Controller
         $videos = $this->youtubeService->videoListByChannel('snippet', ['channelId' => $channelId, 'maxResults' => 50]);
 
         foreach ($videos as $videoDto) {
-          $this->processVideo($videoDto);
+          $this->videoService->processVideo($videoDto);
         }
         return $this->redirect(['index']);
-    }
-
-    private function processVideo(VideoDto $videoDto): void
-    {
-        $video = Video::findOne(['video_id' => $videoDto->videoId]);
-        if ($video === null) {
-            $video = new Video();
-        }
-
-        $video->channel_id = $videoDto->channelId;
-        $video->video_id = $videoDto->videoId;
-
-        if ($video->title !== $videoDto->title) {
-            $video->title = $videoDto->title;
-        }
-
-        $fileName = $video->video_id;
-        $extension = pathinfo(parse_url($videoDto->thumbnailUrl, PHP_URL_PATH), PATHINFO_EXTENSION);
-        $fullFileName = "$fileName.$extension";
-
-        if ($video->image !== $fullFileName) {
-            $imagePath = '@common/files/videos/' . $fullFileName;
-            file_put_contents(Yii::getAlias($imagePath), file_get_contents($videoDto->thumbnailUrl));
-            $video->image = $fullFileName;
-        }
-
-        $videoLanguage = $videoDto->defaultLanguage ?? null;
-        $video->description = $videoDto->description;
-        $video->localizations = $videoDto->localizations;
-        $video->default_language = $videoLanguage;
-
-        if ($video->save()) {
-            Yii::info(Yii::t('video', 'Video {title} saved in the database', ['title' => $video->title]), 'app');
-        } else {
-            Yii::error(Yii::t('video', 'Error saving video {title} to the database: {errors}', [
-                'title' => $video->title,
-                'errors' => json_encode($video->errors),
-            ]), 'app');
-        }
     }
 
     /**
@@ -133,8 +94,24 @@ class VideoController extends Controller
             'model' => $video,
             'comments' => $comments,
             'pagination' => $pagination,
+            'videoId' => $id,
             'assistants' => $this->assistantService->getAllAssistants()
         ]);
+    }
+
+    public function actionUpdateLocalization($videoId)
+    {
+        $video = Video::findOne(['id' => $videoId]);
+
+        if ($video === null) {
+            throw new NotFoundHttpException(Yii::t('video', 'Video not found'));
+        }
+
+        if ($video->load(Yii::$app->request->post(), '') && $video->validate()) {
+            $this->updateLocalizations($video, $this);
+        }
+
+        return true;
     }
 
 
@@ -147,27 +124,12 @@ class VideoController extends Controller
             $action = Yii::$app->request->post('action');
 
             $videosFromLocalizations = Video::find()->where(['like', 'JSON_EXTRACT(localizations, "$.*.description")', $searchModel->searchText])->all();
+            $videosFromLocalizations = Video::find()->where(['like', 'JSON_EXTRACT(localizations, "$.*.description")', $searchModel->searchText])->all();
 
             if ($action == 'find') {
-                foreach ($videosFromLocalizations as $video) {
-                    $foundVideos[] = [
-                        'title' => $video->title,
-                        'thumbnail' => $video->image,
-                    ];
-                }
+                $foundVideos = $this->processFind($videosFromLocalizations, $foundVideos);
             } elseif ($action == 'replace' && !empty($videosFromLocalizations)) {
-                foreach ($videosFromLocalizations as $video) {
-                    $localizations = $video->localizations;
-                    foreach ($localizations as $lang => $data) {
-                        $localizations[$lang]['description'] = str_replace($searchModel->searchText, $searchModel->replaceText, $data['description']);
-                    }
-                    $video->localizations = $localizations;
-                    if($this->youtubeService->updateVideoLocalizations($video->video_id, $localizations, $video->default_language))
-                    {
-                        //TODO Надобы сделать автоподтверждение по апи
-                        $video->save();
-                    }
-                }
+                $this->processReplace($videosFromLocalizations, $searchModel);
             }
         }
 
@@ -192,34 +154,13 @@ class VideoController extends Controller
         if ($this->request->isPost) {
             if ($model->load(Yii::$app->request->post()) && $model->validate()) {
                 $video = $model->getVideo();
-                $this->processVideo($video);
+                $this->videoService->processVideo($video);
                 return $this->redirect(['index']);
             }
         }
         return $this->render('create', [
             'model' => $model,
         ]);
-    }
-
-    /**
-     * Updates an existing Video model.
-     * If update is successful, the browser will be redirected to the 'view' page.
-     * @param int $id ID
-     * @return string|\yii\web\Response
-     * @throws NotFoundHttpException if the model cannot be found
-     */
-    public function actionUpdate($id): \yii\web\Response|string
-    {
-        //TODO недоступно в данном релизе
-       /* $model = $this->findModel($id);
-
-        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
-        }
-
-        return $this->render('update', [
-            'model' => $model,
-        ]);*/
     }
 
     /**
@@ -263,6 +204,43 @@ class VideoController extends Controller
         } else {
             throw new \yii\web\NotFoundHttpException(Yii::t('video', 'Image not found'));
         }
+    }
+
+    /**
+     * @param array $videosFromLocalizations
+     * @param FindReplaceForm $searchModel
+     * @return void
+     * @throws \Exception
+     */
+    public function processReplace(array $videosFromLocalizations, FindReplaceForm $searchModel): void
+    {
+        foreach ($videosFromLocalizations as $video) {
+            $localizations = $video->localizations;
+            foreach ($localizations as $lang => $data) {
+                $localizations[$lang]['description'] = str_replace($searchModel->searchText, $searchModel->replaceText, $data['description']);
+            }
+            $video->localizations = $localizations;
+            if ($this->youtubeService->updateVideoLocalizations($video->video_id, $localizations, $video->default_language)) {
+                //TODO Надобы сделать автоподтверждение по апи
+                $video->save();
+            }
+        }
+    }
+
+    /**
+     * @param array $videosFromLocalizations
+     * @param array $foundVideos
+     * @return array
+     */
+    public function processFind(array $videosFromLocalizations, array $foundVideos): array
+    {
+        foreach ($videosFromLocalizations as $video) {
+            $foundVideos[] = [
+                'title'     => $video->title,
+                'thumbnail' => $video->image,
+            ];
+        }
+        return $foundVideos;
     }
 
 }
