@@ -1,2 +1,4 @@
-crm
 .idea
+.git
+.env
+app/common/files
