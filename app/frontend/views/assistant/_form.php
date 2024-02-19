@@ -9,6 +9,7 @@ use yii\widgets\ActiveForm;
 /** @var common\models\Assistant $model */
 /** @var yii\widgets\ActiveForm $form */
 
+$settingsValues = $model->settings ? $model->settings : [''];
 AssistantFormAsset::register($this);
 
 ?>
@@ -20,14 +21,20 @@ AssistantFormAsset::register($this);
     <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
 
     <div class="input-fields-wrap">
-        <div class="row">
-            <div class="col-md-10">
-                <?= $form->field($model, 'settings[]')->textInput()->label(false) ?>
+        <?php foreach ($settingsValues as $index => $value): ?>
+            <div class="row mb-2"> <!-- добавлен класс mb-2 для отступа между строками -->
+                <div class="col-md-10">
+                    <?= $form->field($model, 'settings[]')->textInput(['value' => $value])->label(false) ?>
+                </div>
+                <div class="col-md-2">
+                    <?php if ($index == 0): ?>
+                        <button class="add-button btn btn-primary" style="width: 100%;">+</button>
+                    <?php else: ?>
+                        <button class="remove-button btn btn-danger" style="width: 100%;">-</button>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="col-md-2">
-                <button class="add-button btn btn-primary" style="width: 100%;">+</button>
-            </div>
-        </div>
+        <?php endforeach; ?>
     </div>
 
     <?= $form->field($model, 'parent_id')->dropDownList(ArrayHelper::map($assistants,'id', 'name'), ['prompt' => Yii::t('assistant', 'Select assistant')]) ?>

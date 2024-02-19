@@ -36,14 +36,14 @@ services:
       - ./app:/app
 
   ngrok:
-    image: wernight/ngrok
-    tty: true
+    image: ngrok/ngrok
     environment:
-      NGROK_AUTH: $NGROK_AUTH_TOKEN
-      NGROK_LOOK_DOMAIN: frontend
-      NGROK_HOSTNAME: $NGROK_HOSTNAME
+      NGROK_AUTHTOKEN: $NGROK_AUTH_TOKEN
+    command: http --hostname=${NGROK_HOSTNAME} frontend:80
     ports:
       - "4040:4040"
+#    command: >
+#      sh -c "./ngrok http -hostname=${NGROK_HOSTNAME} 80"
 
   db:
     hostname: db

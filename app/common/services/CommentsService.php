@@ -78,14 +78,14 @@ class CommentsService
             if ($response) {
                 $replyComment = new Comments();
                 $replyComment->video_id = $videoId;
-                $replyComment->author = $response['author'];
-                $replyComment->text = $response['text'];
-                $replyComment->replied = $response['replied'];
-                $replyComment->conversation = $response['conversation'];
-                $replyComment->avatar = $response['avatar'];
-                $replyComment->comment_id = $response['comment_id'];
-                $replyComment->comment_date = $response['comment_date'];
-                $replyComment->parent_id = $response['parent_id'];
+                $replyComment->author = $response->author;
+                $replyComment->text = $response->text;
+                $replyComment->replied = $response->replied;
+                $replyComment->conversation = $response->conversation;
+                $replyComment->avatar = $response->avatar;
+                $replyComment->comment_id = $response->comment_id;
+                $replyComment->comment_date = $response->comment_date;
+                $replyComment->parent_id = $response->parent_id;
 
                 if (!$replyComment->save()) {
                     Yii::error('Ошибка при сохранении ответа на комментарий: ' . json_encode($replyComment->getErrors()));
@@ -139,21 +139,21 @@ class CommentsService
                 }
             }
         }
-        $existingComments = $this->commentsService->getAllByVideoId($videoId);
+        $existingComments = $this->getAllByVideoId($videoId);
         $existingCommentIds = array_column($existingComments, 'comment_id');
 
         $commentsToDelete = array_diff($existingCommentIds, $youtubeCommentsIds);
 
         foreach ($commentsToDelete as $commentId) {
-            $this->commentsService->setDeleted($commentId);
+            $this->setDeleted($commentId);
         }
 
         foreach ($youtubeCommentsData as $commentDto) {
-            $this->commentsService->syncComment($videoId, $commentDto);
+            $this->syncComment($videoId, $commentDto);
 
             if (isset($commentDto->replies) && is_array($commentDto->replies)) {
                 foreach ($commentDto->replies as $replyData) {
-                    $this->commentsService->syncComment($videoId, $replyData, $commentDto->comment_id);
+                    $this->syncComment($videoId, $replyData, $commentDto->comment_id);
                 }
             }
         }
@@ -200,9 +200,9 @@ class CommentsService
         return $comment;
     }
 
-    public function getAllWithoutReply($videoId, int|string|null $id)
+    public function getAllWithoutReply($videoId): \yii\db\ActiveQuery
     {
-        return $this->comnentsRepository->getAllWithoutReply($videoId, $userId);
+        return $this->comnentsRepository->getAllWithoutReply($videoId);
     }
 
 

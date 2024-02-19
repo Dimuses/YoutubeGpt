@@ -74,7 +74,7 @@ class CommentController extends Controller
         if (!$video) {
             throw new NotFoundHttpException(Yii::t('video', 'The video was not found or you do not have access to it'));
         }
-        $this->commentsService->refreshComments($videoId, $this);
+        $this->commentsService->refreshComments($video?->video_id, $this);
         return $this->redirect(\Yii::$app->request->referrer ?? ['video/index']);
     }
 
@@ -84,7 +84,7 @@ class CommentController extends Controller
      */
     public function actionGenerateReplies($videoId): void
     {
-        $allCommentsIds = $this->commentsService->getAllWithoutReply($videoId, Yii::$app->user->id);
+        $allCommentsIds = $this->commentsService->getAllWithoutReply($videoId);
 
         Yii::$app->queue->push(new GenerateRepliesJob([
             'comments'    => $allComments,

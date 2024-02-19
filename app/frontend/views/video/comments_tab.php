@@ -24,7 +24,7 @@ CommentsAsset::register($this);
 <div class="comments-section">
     <h2>
         <?= Yii::t('video', 'Comments') ?>
-        <?= Html::a(Yii::t('video', 'Refresh comments'), ['comment/get-comments', 'videoId' => $model->video_id], [
+        <?= Html::a(Yii::t('video', 'Refresh comments'), ['comment/get-comments', 'videoId' => $model?->id], [
             'class'     => 'btn btn-primary',
             'data-pjax' => 1
         ]) ?>

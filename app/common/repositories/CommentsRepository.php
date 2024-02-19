@@ -84,8 +84,8 @@ class CommentsRepository
         return $replyComment->save();
     }
 
-    public function getAllWithoutReply($videoId, $userId)
+    public function getAllWithoutReply($videoId): \yii\db\ActiveQuery
     {
-        Comments::find()->where(['video_id']);
+        return Comments::find()->where(['video_id'=> $videoId, 'replied' => 0]);
     }
 }

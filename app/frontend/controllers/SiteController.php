@@ -30,22 +30,22 @@ class SiteController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::class,
-                'only' => ['logout', 'signup'],
+                'only'  => ['logout', 'signup'],
                 'rules' => [
                     [
                         'actions' => ['signup'],
-                        'allow' => true,
-                        'roles' => ['?'],
+                        'allow'   => true,
+                        'roles'   => ['?'],
                     ],
                     [
                         'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
+                        'allow'   => true,
+                        'roles'   => ['@'],
                     ],
                 ],
             ],
-            'verbs' => [
-                'class' => VerbFilter::class,
+            'verbs'  => [
+                'class'   => VerbFilter::class,
                 'actions' => [
                     'logout' => ['post'],
                 ],
@@ -59,11 +59,11 @@ class SiteController extends Controller
     public function actions()
     {
         return [
-            'error' => [
+            'error'   => [
                 'class' => \yii\web\ErrorAction::class,
             ],
             'captcha' => [
-                'class' => \yii\captcha\CaptchaAction::class,
+                'class'           => \yii\captcha\CaptchaAction::class,
                 'fixedVerifyCode' => YII_ENV_TEST ? 'testme' : null,
             ],
         ];
@@ -76,6 +76,28 @@ class SiteController extends Controller
      */
     public function actionIndex()
     {
+     /*   $s = "abcabcbb";
+        $max = 1;
+        $n = strlen($s);
+        $left = $right = 0;
+
+        $subsqn = [];
+
+        while ($right < $n) {
+            $val = $s[$right];
+            $valLeft = $s[$left];
+
+            if (!isset($subsqn[$val])) {
+                $subsqn[$val] = $val;
+                $right++;
+                $max = max($max, count($subsqn));
+            } else {
+                unset($subsqn[$valLeft]);
+                $left++;
+            }
+        }
+        return $max;*/
+
         return $this->render('index');
     }
 
@@ -84,7 +106,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionLogin()
+    public
+    function actionLogin()
     {
         if (!Yii::$app->user->isGuest) {
             return $this->goHome();
@@ -107,7 +130,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionLogout()
+    public
+    function actionLogout()
     {
         Yii::$app->user->logout();
 
@@ -119,7 +143,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionContact()
+    public
+    function actionContact()
     {
         $model = new ContactForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
@@ -142,7 +167,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionAbout()
+    public
+    function actionAbout()
     {
         return $this->render('about');
     }
@@ -152,7 +178,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionSignup()
+    public
+    function actionSignup()
     {
         $model = new SignupForm();
         if ($model->load(Yii::$app->request->post()) && $model->signup()) {
@@ -170,7 +197,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionRequestPasswordReset()
+    public
+    function actionRequestPasswordReset()
     {
         $model = new PasswordResetRequestForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
@@ -195,7 +223,8 @@ class SiteController extends Controller
      * @return mixed
      * @throws BadRequestHttpException
      */
-    public function actionResetPassword($token)
+    public
+    function actionResetPassword($token)
     {
         try {
             $model = new ResetPasswordForm($token);
@@ -218,10 +247,11 @@ class SiteController extends Controller
      * Verify email address
      *
      * @param string $token
-     * @throws BadRequestHttpException
      * @return yii\web\Response
+     * @throws BadRequestHttpException
      */
-    public function actionVerifyEmail($token)
+    public
+    function actionVerifyEmail($token)
     {
         try {
             $model = new VerifyEmailForm($token);
@@ -242,7 +272,8 @@ class SiteController extends Controller
      *
      * @return mixed
      */
-    public function actionResendVerificationEmail()
+    public
+    function actionResendVerificationEmail()
     {
         $model = new ResendVerificationEmailForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
